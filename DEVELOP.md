@@ -1,5 +1,16 @@
 # DEVELOP
 
+# v2.4.2
+
+- Updated `main.py` to import AstrBot framework symbols directly from
+  `astrbot.api`, `astrbot.api.event`, and `astrbot.api.star` for framework
+  reflection checks.
+- `SmartImageSenderPlugin` now inherits `Star` directly and uses `Context`,
+  `StarTools`, and `register` from `astrbot.api.star` without routing those
+  symbols through `backend.common`.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.4.2`.
+
 # v2.4.1
 
 - Replaced package-level wildcard imports from `common.py` with explicit imports

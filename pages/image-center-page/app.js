@@ -204,7 +204,7 @@ const els = {
 };
 
 const pluginApiBase = "/api/plug/astrbot_plugin_smart_imagechat_hub";
-const PLUGIN_VERSION = "v2.4.1";
+const PLUGIN_VERSION = "v2.4.2";
 let bridge = window.AstrBotPluginPage || null;
 let bridgeReady = false;
 let bridgeUnavailable = false;

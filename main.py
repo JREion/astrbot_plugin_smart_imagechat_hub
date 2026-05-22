@@ -1,3 +1,7 @@
+from astrbot.api import logger
+from astrbot.api.event import filter
+from astrbot.api.star import Context, Star, StarTools, register
+
 from .backend import (
     AutoCollectionMixin,
     BackupRestoreMixin,
@@ -27,13 +31,10 @@ from .backend.common import (
     _is_explicit_user_search_wake,
     asyncio,
     clear_auto_collection_plugin,
-    filter,
-    logger,
     set_auto_collection_plugin,
-    star,
 )
 
-@star.register(
+@register(
     PLUGIN_NAME,
     "青尘工作室",
     "LLM 驱动的图片回复插件：支持为图片自动添加特征标签，支持通过识别用户意图，智能回复相关的图片。",
@@ -50,13 +51,13 @@ class SmartImageSenderPlugin(
     RetrievalMixin,
     TaggingMixin,
     UtilityMixin,
-    star.Star,
+    Star,
 ):
-    def __init__(self, context: star.Context, config: AstrBotConfig | None = None):
+    def __init__(self, context: Context, config: AstrBotConfig | None = None):
         super().__init__(context)
         self.config = config or {}
         set_auto_collection_plugin(self)
-        self.data_dir = star.StarTools.get_data_dir(PLUGIN_NAME)
+        self.data_dir = StarTools.get_data_dir(PLUGIN_NAME)
         self.index_path = self.data_dir / "image_index.json"
         self.collection_pool_path = self.data_dir / AUTO_COLLECTION_POOL_FILENAME
         self.discarded_collection_path = (

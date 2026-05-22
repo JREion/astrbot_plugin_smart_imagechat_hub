@@ -27,7 +27,7 @@ from quart import Response, jsonify, request, send_file
 
 
 PLUGIN_NAME = "astrbot_plugin_smart_imagechat_hub"
-PLUGIN_VERSION = "v2.4.1"
+PLUGIN_VERSION = "v2.4.2"
 SKIP_PROACTIVE_EMOJI_EXTRA_KEY = "smart_imagesender_skip_proactive_emoji"
 PENDING_PROACTIVE_EMOJI_EXTRA_KEY = "smart_imagesender_pending_proactive_emoji"
 USER_SEARCH_EXPLICIT_WAKE_EXTRA_KEY = "smart_imagesender_explicit_user_search_wake"

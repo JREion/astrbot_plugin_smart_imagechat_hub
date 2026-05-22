@@ -6,7 +6,7 @@ configuration semantics change.
 
 ## Version
 
-- Current plugin version: `v2.4.1`
+- Current plugin version: `v2.4.2`
 - AstrBot requirement: `>=4.24.2`
 - Main entry: `main.py`
 - Backend package: `backend/`
