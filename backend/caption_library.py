@@ -1,4 +1,27 @@
-from .common import *
+from .common import (
+    AUTO_COLLECTION_CONFIG_KEY,
+    Any,
+    CAPTION_PROMPT_VERSION,
+    COLLECTED_LIBRARY_SOURCE,
+    CONFIG_PAGE_PATH,
+    DEFAULT_CAPTION_PROVIDER_CONFIG_KEY,
+    GLOBAL_TAGS_CONFIG_KEY,
+    IMAGE_TAGS_CONFIG_KEY,
+    LIBRARY_WATCH_INTERVAL_SECONDS,
+    MANUAL_LIBRARY_SOURCE,
+    PROACTIVE_EMOJI_CONFIG_KEY,
+    PROGRESS_PAGE_PATH,
+    SCHEDULED_BACKUP_CONFIG_KEY,
+    TAG_CATEGORY_CONFIG_KEY,
+    TAG_CATEGORY_LABEL_TO_KEY,
+    TAG_CATEGORY_PRESETS,
+    USER_SEARCH_CONFIG_KEY,
+    asyncio,
+    json,
+    logger,
+    re,
+    time,
+)
 
 
 class CaptionLibraryMixin:
@@ -19,7 +42,9 @@ class CaptionLibraryMixin:
             existing_rel_paths = self._existing_image_rel_paths(candidate_rel_paths)
 
             images = self._index.setdefault("images", {})
-            assert isinstance(images, dict)
+            if not isinstance(images, dict):
+                images = {}
+                self._index["images"] = images
 
             stale_by_digest: dict[str, dict[str, Any]] = {}
             for image_id in list(images.keys()):

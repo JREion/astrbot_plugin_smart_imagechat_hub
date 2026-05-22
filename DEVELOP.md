@@ -1,5 +1,14 @@
 # DEVELOP
 
+# v2.4.1
+
+- Replaced package-level wildcard imports from `common.py` with explicit imports
+  in `main.py` and backend mixin modules to avoid namespace pollution.
+- Replaced the `_sync_library` index-shape assertion with an explicit dict
+  fallback so optimized Python runs keep the same defensive behavior.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.4.1`.
+
 # v2.4.0
 
 - Refactored the former monolithic `SmartImageSenderPlugin` God Object into a `backend/` package of focused mixins while keeping `main.py` as the AstrBot plugin entry point.

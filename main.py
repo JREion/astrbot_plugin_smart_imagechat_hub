@@ -10,8 +10,28 @@ from .backend import (
     UtilityMixin,
     WebApiMixin,
 )
-from .backend.common import *
-from .backend.common import _is_explicit_user_search_wake
+from .backend.common import (
+    AUTO_COLLECTION_DISCARDED_FILENAME,
+    AUTO_COLLECTION_POOL_FILENAME,
+    Any,
+    AstrBotConfig,
+    AstrMessageEvent,
+    AutoImageCollectionMessageFilter,
+    Image,
+    PLUGIN_NAME,
+    PLUGIN_VERSION,
+    Plain,
+    SKIP_PROACTIVE_EMOJI_EXTRA_KEY,
+    TextPart,
+    WakeImageRequestFilter,
+    _is_explicit_user_search_wake,
+    asyncio,
+    clear_auto_collection_plugin,
+    filter,
+    logger,
+    set_auto_collection_plugin,
+    star,
+)
 
 @star.register(
     PLUGIN_NAME,
