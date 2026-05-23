@@ -14,6 +14,7 @@ from .common import (
     LEGACY_IMAGE_TAGS_CONFIG_KEY,
     LIBRARY_BUILDER_CONFIG_KEY,
     MANUAL_LIBRARY_SOURCE,
+    MEME_COMBAT_CONFIG_KEY,
     PENDING_COLLECTION_FOLDER,
     PLUGIN_NAME,
     PLUGIN_VERSION,
@@ -1165,6 +1166,10 @@ class BackupRestoreMixin:
                 self.config[key] = self._normalize_auto_collection_config(value)
                 applied_keys.append(key)
                 continue
+            if key == MEME_COMBAT_CONFIG_KEY:
+                self.config[key] = self._normalize_meme_combat_config(value)
+                applied_keys.append(key)
+                continue
             if key == SCHEDULED_BACKUP_CONFIG_KEY:
                 self.config[key] = self._normalize_scheduled_backup_config(value)
                 applied_keys.append(key)
@@ -1378,6 +1383,7 @@ class BackupRestoreMixin:
             raw = {}
         snapshot = self._json_safe_copy(raw)
         snapshot[AUTO_COLLECTION_CONFIG_KEY] = self._auto_collection_config()
+        snapshot[MEME_COMBAT_CONFIG_KEY] = self._meme_combat_config()
         snapshot[SCHEDULED_BACKUP_CONFIG_KEY] = self._scheduled_backup_config()
         snapshot[USER_SEARCH_CONFIG_KEY] = {
             "enabled": self._cfg_bool("user_search_enabled"),

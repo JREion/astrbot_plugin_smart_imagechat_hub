@@ -1,5 +1,68 @@
 # DEVELOP
 
+# v2.4.8
+
+- Follow-up bugfix without a version bump: accepting images from the pending
+  auto-collection pool no longer lets Page polling reset an active caption item
+  from `running` back to `pending`. Library sync now preserves `running` while a
+  caption task is alive, and recovers stale `running` items when no caption task
+  exists.
+- Follow-up change without a version bump: capability buttons in the Page now
+  share the same column width. The layout keeps at most two buttons per row when
+  labels can stay on one line, falls back to one column when needed, and keeps
+  the "更多插件配置 ..." button on the final row.
+- Added a Page "图库管理" primary action between upload and automatic tag-flow
+  settings. It scrolls the Page to the manual/auto library scope switch so the
+  library manager starts at the top of the viewport.
+- Changed the Page capabilities and global-tags sections to share a responsive
+  two-column layout on wide viewports while preserving the existing single-column
+  layout on narrow screens. Capability buttons now keep text on one line, flow
+  as one or two columns, and keep "更多插件配置 ..." on the final row.
+- Updated the Edit Tags dialog title to show only the image filename with suffix
+  instead of the full relative path.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.4.8`.
+
+# v2.4.6
+
+- Fixed group smart meme-combat join-pattern and battle observation paths.
+  Incoming group image jobs now snapshot only the required event fields before
+  entering the bounded queue, avoiding later pipeline state changes.
+- Fixed repeated-image detection for OneBot/QQ-style image messages by using
+  stable image file identifiers for fingerprints while keeping URL/base64 data
+  available for sendback.
+- Fixed image-only streak detection by checking actual `Plain` components first
+  and treating common image placeholders in `message_str` as non-text.
+- Fixed battle image selection so valid LLM-selected candidate IDs are accepted
+  even when the model omits a confidence value; local fallback still applies.
+- Added Page-only tag search bars above the manual-upload library and the
+  solidified library image lists. Searches filter the currently loaded images
+  locally by tag text and expose an inline clear button without touching backend
+  configuration or storage.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.4.6`.
+
+# v2.4.5
+
+- Added group smart meme-combat (`meme_combat`) with three subfeatures:
+  join-pattern replies for repeated identical group images, probability-based
+  related image bursts after this plugin sends an image, and continuous-image
+  battle participation using quick two-image semantic analysis plus local
+  library retrieval.
+- Implemented `backend/meme_combat.py` as a focused mixin with bounded
+  per-group in-memory windows, lightweight image fingerprints, a lazily-created
+  bounded background observer queue, cooldowns for burst/battle sends, and state
+  resets after bot image sends to avoid feedback loops.
+- Added native WebUI schema support and Page API support through
+  `meme_combat_config`, including provider-option refresh for the battle
+  quick-analysis model.
+- Added a Page "群聊智能斗图" capability button and configuration overlay with
+  total switch, "加入队形", "图片连发", and "参与团战" sections.
+- Included `meme_combat` in config snapshots and backup import/export
+  normalization.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.4.5`.
+
 # v2.4.2
 
 - Updated `main.py` to import AstrBot framework symbols directly from

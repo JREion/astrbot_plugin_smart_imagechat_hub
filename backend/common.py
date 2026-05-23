@@ -27,9 +27,10 @@ from quart import Response, jsonify, request, send_file
 
 
 PLUGIN_NAME = "astrbot_plugin_smart_imagechat_hub"
-PLUGIN_VERSION = "v2.4.2"
+PLUGIN_VERSION = "v2.4.8"
 SKIP_PROACTIVE_EMOJI_EXTRA_KEY = "smart_imagesender_skip_proactive_emoji"
 PENDING_PROACTIVE_EMOJI_EXTRA_KEY = "smart_imagesender_pending_proactive_emoji"
+PENDING_MEME_COMBAT_IMAGE_EXTRA_KEY = "smart_imagesender_pending_meme_combat_image"
 USER_SEARCH_EXPLICIT_WAKE_EXTRA_KEY = "smart_imagesender_explicit_user_search_wake"
 USER_SEARCH_CONFIG_KEY = "user_search_flow"
 AUTO_COLLECTION_CONFIG_KEY = "auto_image_collection"
@@ -42,6 +43,7 @@ PROGRESS_LINK_CONFIG_KEY = "library_builder.empty_config_for_hint_only"
 TAG_CATEGORY_CONFIG_KEY = "caption_tag_category_settings"
 DEFAULT_CAPTION_PROVIDER_CONFIG_KEY = "default_image_caption_provider_id"
 PROACTIVE_EMOJI_CONFIG_KEY = "proactive_emoji_reply"
+MEME_COMBAT_CONFIG_KEY = "meme_combat"
 LEGACY_IMAGE_TAGS_CONFIG_KEY = "manual_tags"
 CAPTION_PROMPT_VERSION = 2
 BACKUP_FORMAT_VERSION = 1
@@ -285,3 +287,28 @@ class AutoImageCollectionMessageFilter(filter.CustomFilter):
         return False
 
 
+class MemeCombatMessageFilter(filter.CustomFilter):
+    """Observe group image traffic without activating the plugin handler."""
+
+    def filter(self, event: AstrMessageEvent, cfg: AstrBotConfig) -> bool:
+        plugin = get_auto_collection_plugin()
+        if plugin is None:
+            return False
+
+        raw_cfg = plugin.config.get(MEME_COMBAT_CONFIG_KEY, {})
+        if not isinstance(raw_cfg, dict) or not bool(raw_cfg.get("enabled", False)):
+            return False
+
+        group_id = str(event.get_group_id() or "").strip()
+        if not group_id:
+            return False
+
+        images = tuple(comp for comp in event.get_messages() if isinstance(comp, Image))
+        group_state = getattr(plugin, "_meme_combat_groups", {})
+        state = group_state.get(group_id) if isinstance(group_state, dict) else None
+        has_active_streak = isinstance(state, dict) and bool(state.get("streak"))
+        if not images and not has_active_streak:
+            return False
+
+        plugin._enqueue_meme_combat_event(event)
+        return False

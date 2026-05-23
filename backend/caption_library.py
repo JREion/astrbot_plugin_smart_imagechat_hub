@@ -9,6 +9,7 @@ from .common import (
     IMAGE_TAGS_CONFIG_KEY,
     LIBRARY_WATCH_INTERVAL_SECONDS,
     MANUAL_LIBRARY_SOURCE,
+    MEME_COMBAT_CONFIG_KEY,
     PROACTIVE_EMOJI_CONFIG_KEY,
     PROGRESS_PAGE_PATH,
     SCHEDULED_BACKUP_CONFIG_KEY,
@@ -45,6 +46,9 @@ class CaptionLibraryMixin:
             if not isinstance(images, dict):
                 images = {}
                 self._index["images"] = images
+            caption_task_running = bool(
+                self._caption_task and not self._caption_task.done()
+            )
 
             stale_by_digest: dict[str, dict[str, Any]] = {}
             for image_id in list(images.keys()):
@@ -181,7 +185,11 @@ class CaptionLibraryMixin:
                 elif needs_caption:
                     if content_changed or force or prompt_changed or not auto_tags:
                         auto_tags = self._normalize_caption_tags([], abs_path.name)
-                    item["caption_status"] = "pending"
+                    item["caption_status"] = (
+                        "running"
+                        if caption_status == "running" and caption_task_running
+                        else "pending"
+                    )
                 else:
                     item["caption_status"] = "done"
 
@@ -239,11 +247,14 @@ class CaptionLibraryMixin:
 
     async def _sync_library_if_changed(self, caption_mode: str = "background") -> None:
         signature = self._library_signature()
-        pending_without_task = (
+        task_running = bool(self._caption_task and not self._caption_task.done())
+        waiting_without_task = (
             bool(self._pending_caption_rel_paths(include_failed=False))
-            and not (self._caption_task and not self._caption_task.done())
-        )
-        if signature == self._last_library_signature and not pending_without_task:
+            or self._running_caption_count() > 0
+        ) and not task_running
+        if self._caption_task and self._caption_task.done():
+            self._caption_task = None
+        if signature == self._last_library_signature and not waiting_without_task:
             return
         await self._sync_library(caption_mode=caption_mode)
 
@@ -520,6 +531,7 @@ class CaptionLibraryMixin:
                 "request_keywords": self._request_keywords(),
             },
             AUTO_COLLECTION_CONFIG_KEY: self._auto_collection_config(),
+            MEME_COMBAT_CONFIG_KEY: self._meme_combat_config(),
             SCHEDULED_BACKUP_CONFIG_KEY: self._scheduled_backup_config(),
             "request_keywords": self._request_keywords(),
             "hidden_images": sorted(self._hidden_rel_paths()),
@@ -551,6 +563,11 @@ class CaptionLibraryMixin:
                 self._normalize_scheduled_backup_config(raw_scheduled_backup_cfg)
             )
             self._restart_scheduled_backup_task()
+        raw_meme_combat_cfg = payload.get(MEME_COMBAT_CONFIG_KEY)
+        if isinstance(raw_meme_combat_cfg, dict):
+            self.config[MEME_COMBAT_CONFIG_KEY] = (
+                self._normalize_meme_combat_config(raw_meme_combat_cfg)
+            )
         raw_user_search_cfg = payload.get(USER_SEARCH_CONFIG_KEY)
         if isinstance(raw_user_search_cfg, dict):
             self._set_user_search_config(

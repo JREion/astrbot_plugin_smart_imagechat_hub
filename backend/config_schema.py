@@ -4,6 +4,7 @@ from .common import (
     DEFAULT_CAPTION_PROVIDER_CONFIG_KEY,
     IMAGE_TAGS_CONFIG_KEY,
     MANUAL_LIBRARY_SOURCE,
+    MEME_COMBAT_CONFIG_KEY,
     PROACTIVE_EMOJI_CONFIG_KEY,
     PROGRESS_LINK_CONFIG_KEY,
     PROGRESS_PAGE_CONFIG_VALUE,
@@ -165,6 +166,7 @@ class ConfigSchemaMixin:
 
     def _save_plugin_config(self) -> None:
         self._refresh_caption_tag_category_schema()
+        self._refresh_meme_combat_schema()
         self._refresh_scheduled_backup_schema()
         save_config = getattr(self.config, "save_config", None)
         if callable(save_config):
@@ -258,6 +260,7 @@ class ConfigSchemaMixin:
         provider_schema["options"] = [
             option["id"] for option in self._chat_provider_options()
         ]
+        self._refresh_meme_combat_schema()
 
     def _refresh_scheduled_backup_schema(self) -> None:
         schema = getattr(self.config, "schema", None)

@@ -69,6 +69,7 @@
 
         <div class="actions progress-actions">
           <button id="openUploadButton" type="button" class="primary-action">上传新图片</button>
+          <button id="libraryManageButton" type="button" class="primary-action">图库管理</button>
           <button id="tagCategoryButton" type="button" class="plain-button">自动标签生成流程配置 ...</button>
           <div class="action-spacer"></div>
           <button id="importButton" type="button" class="success-button">导入配置</button>
@@ -76,43 +77,46 @@
         </div>
       </section>
 
-      <section class="panel capabilities-panel">
-        <div class="section-header">
-          <div>
-            <p class="eyebrow">Capabilities</p>
-            <h2>插件能力配置</h2>
+      <div class="capability-tags-layout">
+        <section class="panel capabilities-panel">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">Capabilities</p>
+              <h2>插件能力配置</h2>
+            </div>
           </div>
-        </div>
 
-        <div class="capability-actions">
-          <button id="userSearchButton" type="button">为用户寻找表情包</button>
-          <button id="proactiveEmojiButton" type="button">对话中主动发送表情包</button>
-          <button id="autoCollectionButton" type="button">自动收集群友发的图</button>
-          <button id="moreConfigButton" type="button" class="warning-button">更多插件配置 ...</button>
-        </div>
-      </section>
-
-      <section class="panel global-tags-panel">
-        <div class="section-header">
-          <div>
-            <p class="eyebrow">Global Tags</p>
-            <h2>公用特征标签</h2>
-            <p>可被多个图像共享的特征标签。在本列表中填写并保存后，在图像标签编辑器中可以快速应用这些公用标签。</p>
+          <div class="capability-actions">
+            <button id="userSearchButton" type="button">为用户寻找表情包</button>
+            <button id="proactiveEmojiButton" type="button">对话中主动发送表情包</button>
+            <button id="autoCollectionButton" type="button">自动收集群友发的图</button>
+            <button id="memeCombatButton" type="button">群聊智能斗图</button>
+            <button id="moreConfigButton" type="button" class="warning-button">更多插件配置 ...</button>
           </div>
-          <span id="globalTagsMeta" class="meta-text">0 个</span>
-        </div>
+        </section>
 
-        <textarea
-          id="globalTagsInput"
-          rows="4"
-          placeholder="每行一个公用特征标签，或用逗号分隔"
-        ></textarea>
-        <div class="tag-list global-tags-preview" id="globalTagsPreview"></div>
-        <p id="globalTagsMessage" class="editor-message"></p>
-        <div class="actions">
-          <button id="globalTagsSaveButton" type="button">保存公用标签</button>
-        </div>
-      </section>
+        <section class="panel global-tags-panel">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">Global Tags</p>
+              <h2>公用特征标签</h2>
+              <p>可被多个图像共享的特征标签。在本列表中填写并保存后，在图像标签编辑器中可以快速应用这些公用标签。</p>
+            </div>
+            <span id="globalTagsMeta" class="meta-text">0 个</span>
+          </div>
+
+          <textarea
+            id="globalTagsInput"
+            rows="4"
+            placeholder="每行一个公用特征标签，或用逗号分隔"
+          ></textarea>
+          <div class="tag-list global-tags-preview" id="globalTagsPreview"></div>
+          <p id="globalTagsMessage" class="editor-message"></p>
+          <div class="actions">
+            <button id="globalTagsSaveButton" type="button">保存公用标签</button>
+          </div>
+        </section>
+      </div>
 
       <div id="libraryScopeSwitchRow" class="library-scope-switch-row">
         <div class="library-scope-toggle" role="group" aria-label="鍥惧簱鏄剧ず妯″紡">
@@ -166,6 +170,24 @@
           </div>
         </div>
 
+        <div class="library-search-row">
+          <span class="library-search-icon" aria-hidden="true"></span>
+          <label class="library-search-box" for="libraryTagSearchInput">
+            <input
+              id="libraryTagSearchInput"
+              type="search"
+              autocomplete="off"
+              placeholder="按标签搜索"
+            />
+            <button
+              id="libraryTagSearchClearButton"
+              type="button"
+              class="library-search-clear is-hidden"
+              aria-label="清空手动图库标签搜索"
+              title="清空"
+            ></button>
+          </label>
+        </div>
         <div id="libraryList" class="library-list"></div>
         <p id="emptyLibraryText" class="empty-text">暂无已经生成特征标签的图像。</p>
       </section>
@@ -227,6 +249,24 @@
           </div>
         </div>
 
+        <div class="library-search-row">
+          <span class="library-search-icon" aria-hidden="true"></span>
+          <label class="library-search-box" for="solidifiedLibraryTagSearchInput">
+            <input
+              id="solidifiedLibraryTagSearchInput"
+              type="search"
+              autocomplete="off"
+              placeholder="按标签搜索"
+            />
+            <button
+              id="solidifiedLibraryTagSearchClearButton"
+              type="button"
+              class="library-search-clear is-hidden"
+              aria-label="清空固化图库标签搜索"
+              title="清空"
+            ></button>
+          </label>
+        </div>
         <div id="solidifiedLibraryList" class="library-list"></div>
         <p id="emptySolidifiedLibraryText" class="empty-text">暂无已完成标签生成的固化图像。</p>
       </section>
@@ -557,6 +597,159 @@
         </div>
 
         <p id="autoCollectionMessage" class="editor-message"></p>
+      </section>
+    </div>
+
+    <div id="memeCombatOverlay" class="editor-overlay is-hidden" role="dialog" aria-modal="true">
+      <section class="editor-panel config-panel">
+        <div class="editor-header config-header">
+          <div>
+            <p class="eyebrow">Group Meme Combat</p>
+            <h2>群聊智能斗图</h2>
+          </div>
+          <div class="config-header-actions">
+            <button id="memeCombatSaveButton" type="button">保存</button>
+            <button id="memeCombatCancelButton" type="button" class="secondary">取消</button>
+          </div>
+        </div>
+
+        <div class="config-sections">
+          <section class="config-section">
+            <div class="config-section-title capability-section-title">
+              <h3>🥊 群聊智能斗图</h3>
+              <p>在群聊图片对话中自动加入队形、按概率连发相关图片，或在连续图片团战中检索语义相近的图库图片。</p>
+            </div>
+
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="memeCombatEnabledInput">群聊智能斗图功能总开关</label>
+                <p>功能总开关。关闭后，不会统计群聊图片窗口，也不会触发加入队形、图片连发或参与团战 (即使打开了下面的子功能开关)。</p>
+              </div>
+              <div class="config-item-control">
+                <label class="switch-option">
+                  <input id="memeCombatEnabledInput" type="checkbox" />
+                  <span> </span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="config-section">
+            <div class="config-section-title capability-section-title">
+              <h3>加入队形</h3>
+              <p>如果多名群友在时间窗口内连续发送相同图片，bot 会跟着队形进行接龙。</p>
+            </div>
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="memeCombatFollowEnabledInput">开启加入队形</label>
+              </div>
+              <div class="config-item-control">
+                <label class="switch-option">
+                  <input id="memeCombatFollowEnabledInput" type="checkbox" />
+                  <span> </span>
+                </label>
+              </div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="memeCombatFollowWindowInput">统计的时间窗口 (秒)</label>
+              </div>
+              <div class="config-item-control">
+                <input id="memeCombatFollowWindowInput" type="number" min="1" step="1" />
+              </div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="memeCombatFollowCountInput">相同图片的出现次数</label>
+                <p>注意：请设置为 >=2，以避免 bot 跟着单个用户发同一张图。</p>
+              </div>
+              <div class="config-item-control">
+                <input id="memeCombatFollowCountInput" type="number" min="2" step="1" />
+              </div>
+            </div>
+          </section>
+
+          <section class="config-section">
+            <div class="config-section-title capability-section-title">
+              <h3>图片连发</h3>
+              <p>bot 有一定概率在某次图片回复中，连续发送多张表情包。</p>
+            </div>
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="memeCombatBurstEnabledInput">开启图片连发</label>
+              </div>
+              <div class="config-item-control">
+                <label class="switch-option">
+                  <input id="memeCombatBurstEnabledInput" type="checkbox" />
+                  <span> </span>
+                </label>
+              </div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="memeCombatBurstProbabilityInput">触发连发的概率</label>
+                <p>取值范围 0-1。其他插件控制 bot 发送的图片不计算。</p>
+              </div>
+              <div class="config-item-control">
+                <input id="memeCombatBurstProbabilityInput" type="text" placeholder="0.2" />
+              </div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="memeCombatBurstCountInput">连发图片的数量</label>
+                <p>bot 最开始发出的那张图片不计入连发数量。</p>
+              </div>
+              <div class="config-item-control">
+                <input id="memeCombatBurstCountInput" type="number" min="1" step="1" />
+              </div>
+            </div>
+          </section>
+
+          <section class="config-section">
+            <div class="config-section-title capability-section-title">
+              <h3>参与团战</h3>
+              <p>如果群聊进入斗图团战 (对话中连续出现图片)，bot 会抽取其中 2 张图片快速分析语义，从自己的图库中搜索表情包参与团战。</p>
+            </div>
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="memeCombatBattleEnabledInput">开启参与团战</label>
+              </div>
+              <div class="config-item-control">
+                <label class="switch-option">
+                  <input id="memeCombatBattleEnabledInput" type="checkbox" />
+                  <span> </span>
+                </label>
+              </div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="memeCombatBattleWindowInput">统计的时间窗口 (秒)</label>
+              </div>
+              <div class="config-item-control">
+                <input id="memeCombatBattleWindowInput" type="number" min="1" step="1" />
+              </div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="memeCombatBattleCountInput">对话中连续出现图片的数量</label>
+              </div>
+              <div class="config-item-control">
+                <input id="memeCombatBattleCountInput" type="number" min="2" step="1" />
+              </div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="memeCombatBattleProviderInput">图片语义快速分析 LLM 模型</label>
+                <p>留空或不可用时继承 AstrBot 当前会话模型选择策略。建议选择实时性更强的模型，如 gpt-5.4-mini 或 deepseek-v4-flash。</p>
+              </div>
+              <div class="config-item-control">
+                <select id="memeCombatBattleProviderInput"></select>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <p id="memeCombatMessage" class="editor-message"></p>
       </section>
     </div>
 

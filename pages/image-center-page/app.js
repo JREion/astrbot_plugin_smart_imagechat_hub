@@ -13,11 +13,13 @@ const els = {
   completeHint: document.getElementById("completeHint"),
   refreshButton: document.getElementById("refreshButton"),
   openUploadButton: document.getElementById("openUploadButton"),
+  libraryManageButton: document.getElementById("libraryManageButton"),
   tagCategoryButton: document.getElementById("tagCategoryButton"),
   moreConfigButton: document.getElementById("moreConfigButton"),
   userSearchButton: document.getElementById("userSearchButton"),
   proactiveEmojiButton: document.getElementById("proactiveEmojiButton"),
   autoCollectionButton: document.getElementById("autoCollectionButton"),
+  memeCombatButton: document.getElementById("memeCombatButton"),
   importButton: document.getElementById("importButton"),
   exportButton: document.getElementById("exportButton"),
   uploadInput: document.getElementById("uploadInput"),
@@ -62,6 +64,10 @@ const els = {
   libraryListModeButton: document.getElementById("libraryListModeButton"),
   libraryGalleryModeButton: document.getElementById("libraryGalleryModeButton"),
   libraryUploadButton: document.getElementById("libraryUploadButton"),
+  libraryTagSearchInput: document.getElementById("libraryTagSearchInput"),
+  libraryTagSearchClearButton: document.getElementById(
+    "libraryTagSearchClearButton",
+  ),
   libraryList: document.getElementById("libraryList"),
   emptyLibraryText: document.getElementById("emptyLibraryText"),
   pendingPoolMeta: document.getElementById("pendingPoolMeta"),
@@ -77,6 +83,12 @@ const els = {
   solidifiedGalleryModeButton: document.getElementById("solidifiedGalleryModeButton"),
   solidifiedBackToScopeButton: document.getElementById(
     "solidifiedBackToScopeButton",
+  ),
+  solidifiedLibraryTagSearchInput: document.getElementById(
+    "solidifiedLibraryTagSearchInput",
+  ),
+  solidifiedLibraryTagSearchClearButton: document.getElementById(
+    "solidifiedLibraryTagSearchClearButton",
   ),
   solidifiedLibraryList: document.getElementById("solidifiedLibraryList"),
   emptySolidifiedLibraryText: document.getElementById(
@@ -150,6 +162,41 @@ const els = {
   autoCollectionCancelButton: document.getElementById(
     "autoCollectionCancelButton",
   ),
+  memeCombatOverlay: document.getElementById("memeCombatOverlay"),
+  memeCombatEnabledInput: document.getElementById("memeCombatEnabledInput"),
+  memeCombatFollowEnabledInput: document.getElementById(
+    "memeCombatFollowEnabledInput",
+  ),
+  memeCombatFollowWindowInput: document.getElementById(
+    "memeCombatFollowWindowInput",
+  ),
+  memeCombatFollowCountInput: document.getElementById(
+    "memeCombatFollowCountInput",
+  ),
+  memeCombatBurstEnabledInput: document.getElementById(
+    "memeCombatBurstEnabledInput",
+  ),
+  memeCombatBurstProbabilityInput: document.getElementById(
+    "memeCombatBurstProbabilityInput",
+  ),
+  memeCombatBurstCountInput: document.getElementById(
+    "memeCombatBurstCountInput",
+  ),
+  memeCombatBattleEnabledInput: document.getElementById(
+    "memeCombatBattleEnabledInput",
+  ),
+  memeCombatBattleWindowInput: document.getElementById(
+    "memeCombatBattleWindowInput",
+  ),
+  memeCombatBattleCountInput: document.getElementById(
+    "memeCombatBattleCountInput",
+  ),
+  memeCombatBattleProviderInput: document.getElementById(
+    "memeCombatBattleProviderInput",
+  ),
+  memeCombatMessage: document.getElementById("memeCombatMessage"),
+  memeCombatSaveButton: document.getElementById("memeCombatSaveButton"),
+  memeCombatCancelButton: document.getElementById("memeCombatCancelButton"),
   userSearchOverlay: document.getElementById("userSearchOverlay"),
   userSearchEnabledInput: document.getElementById("userSearchEnabledInput"),
   userSearchMessage: document.getElementById("userSearchMessage"),
@@ -204,7 +251,7 @@ const els = {
 };
 
 const pluginApiBase = "/api/plug/astrbot_plugin_smart_imagechat_hub";
-const PLUGIN_VERSION = "v2.4.2";
+const PLUGIN_VERSION = "v2.4.8";
 let bridge = window.AstrBotPluginPage || null;
 let bridgeReady = false;
 let bridgeUnavailable = false;
@@ -223,6 +270,8 @@ let warningProviderConfig = null;
 let libraryViewMode = "list";
 let solidifiedLibraryViewMode = "list";
 let libraryScopeMode = "manual";
+let libraryTagSearchText = "";
+let solidifiedLibraryTagSearchText = "";
 let selectedGalleryImageId = "";
 let selectedSolidifiedGalleryImageId = "";
 let libraryRenderResizeTimer = 0;
@@ -259,6 +308,12 @@ const LIBRARY_MODE_ICONS = {
     '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6.2 1.6h3.6a1.2 1.2 0 0 1 1.2 1.2V4h2.7a.8.8 0 0 1 0 1.6h-.8V12.3A2.1 2.1 0 0 1 10.8 14.4H5.2a2.1 2.1 0 0 1-2.1-2.1V5.6h-.8a.8.8 0 0 1 0-1.6H5V2.8a1.2 1.2 0 0 1 1.2-1.2Zm.2 2.4h3.2V3.1H6.4V4Zm-1.8 1.6v6.6c0 .3.3.6.6.6h5.2c.3 0 .6-.3.6-.6V5.6H4.8Zm1.1 1.1h1.1v4.3H5.9V6.7Zm2.5 0h1.1v4.3H8.4V6.7Z"/></svg>',
 };
 
+const SEARCH_ICON =
+  '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M7.1 2a5.1 5.1 0 1 1 0 10.2A5.1 5.1 0 0 1 7.1 2Zm0 1.6a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm3.9 7.9 2.4 2.4-1.1 1.1-2.4-2.4 1.1-1.1Z"/></svg>';
+
+const CLEAR_ICON =
+  '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m8 6.9 2.1-2.1 1.1 1.1L9.1 8l2.1 2.1-1.1 1.1L8 9.1l-2.1 2.1-1.1-1.1L6.9 8 4.8 5.9l1.1-1.1L8 6.9Z"/></svg>';
+
 const SCOPE_MODE_ICONS = {
   manual:
     '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.2 2.4c0-.6.6-.9 1.1-.6l8.7 5.3c.6.4.4 1.3-.3 1.4l-3.1.5 1.8 3.1c.2.4.1.9-.3 1.1l-1.1.6c-.4.2-.9.1-1.1-.3L7.1 10.4l-2.4 2.4c-.5.5-1.5.2-1.5-.6V2.4z"/></svg>',
@@ -279,6 +334,11 @@ els.libraryGalleryModeButton.innerHTML = LIBRARY_MODE_ICONS.gallery;
 els.solidifiedListModeButton.innerHTML = LIBRARY_MODE_ICONS.list;
 els.solidifiedGalleryModeButton.innerHTML = LIBRARY_MODE_ICONS.gallery;
 els.solidifiedBackToScopeButton.innerHTML = UP_ARROW_ICON;
+for (const icon of document.querySelectorAll(".library-search-icon")) {
+  icon.innerHTML = SEARCH_ICON;
+}
+els.libraryTagSearchClearButton.innerHTML = CLEAR_ICON;
+els.solidifiedLibraryTagSearchClearButton.innerHTML = CLEAR_ICON;
 
 const standbyHintHtml =
   "请点击 [上传新图片] 按钮更新图库，本插件会自动为新图片分配标签。<br>" +
@@ -415,6 +475,11 @@ function clampInt(value, defaultValue, minValue = 0) {
     return defaultValue;
   }
   return Math.max(parsed, minValue);
+}
+
+function clampIntRange(value, defaultValue, minValue, maxValue) {
+  const parsed = clampInt(value, defaultValue, minValue);
+  return Math.min(parsed, maxValue);
 }
 
 function normalizeBackupTime(value) {
@@ -839,6 +904,14 @@ function scrollToLibraryScopeSwitch() {
   });
 }
 
+function imageDisplayName(image) {
+  const rawName = String(image?.filename || image?.rel_path || "").trim();
+  if (!rawName) {
+    return "编辑图像标签";
+  }
+  return rawName.replaceAll("\\", "/").split("/").filter(Boolean).pop() || rawName;
+}
+
 function tagChip(tag) {
   const chip = document.createElement("span");
   chip.className = "tag-chip";
@@ -860,6 +933,15 @@ function getLibraryState(source = MANUAL_LIBRARY_SOURCE) {
       setViewModeValue: (mode) => {
         solidifiedLibraryViewMode = mode;
       },
+      getSearchText: () => solidifiedLibraryTagSearchText,
+      setSearchText: (text) => {
+        solidifiedLibraryTagSearchText = text;
+      },
+      searchInput: els.solidifiedLibraryTagSearchInput,
+      searchClearButton: els.solidifiedLibraryTagSearchClearButton,
+      searchRow: els.solidifiedLibraryTagSearchInput.closest(
+        ".library-search-row",
+      ),
       getSelectedId: () => selectedSolidifiedGalleryImageId,
       setSelectedId: (imageId) => {
         selectedSolidifiedGalleryImageId = imageId;
@@ -886,6 +968,13 @@ function getLibraryState(source = MANUAL_LIBRARY_SOURCE) {
     setViewModeValue: (mode) => {
       libraryViewMode = mode;
     },
+    getSearchText: () => libraryTagSearchText,
+    setSearchText: (text) => {
+      libraryTagSearchText = text;
+    },
+    searchInput: els.libraryTagSearchInput,
+    searchClearButton: els.libraryTagSearchClearButton,
+    searchRow: els.libraryTagSearchInput.closest(".library-search-row"),
     getSelectedId: () => selectedGalleryImageId,
     setSelectedId: (imageId) => {
       selectedGalleryImageId = imageId;
@@ -908,9 +997,77 @@ function syncSelectedGalleryImage(source = MANUAL_LIBRARY_SOURCE) {
     state.setSelectedId("");
     return;
   }
-  if (!state.images.some((image) => String(image?.id || "").trim() === selectedId)) {
+  if (
+    !filteredLibraryImages(state).some(
+      (image) => String(image?.id || "").trim() === selectedId,
+    )
+  ) {
     state.setSelectedId("");
   }
+}
+
+function libraryImageTags(image) {
+  return [
+    ...(Array.isArray(image?.merged_tags) ? image.merged_tags : []),
+    ...(Array.isArray(image?.tags) ? image.tags : []),
+    ...(Array.isArray(image?.auto_tags) ? image.auto_tags : []),
+    ...(Array.isArray(image?.manual_tags) ? image.manual_tags : []),
+    ...(Array.isArray(image?.selected_global_tags)
+      ? image.selected_global_tags
+      : []),
+  ];
+}
+
+function filteredLibraryImages(state) {
+  const keyword = String(state.getSearchText() || "").trim().toLocaleLowerCase();
+  if (!keyword) {
+    return state.images;
+  }
+  return state.images.filter((image) =>
+    libraryImageTags(image).some((tag) =>
+      String(tag || "").toLocaleLowerCase().includes(keyword),
+    ),
+  );
+}
+
+function updateLibrarySearchControls(source = MANUAL_LIBRARY_SOURCE) {
+  const state = getLibraryState(source);
+  const value = String(state.getSearchText() || "");
+  if (state.searchInput && state.searchInput.value !== value) {
+    state.searchInput.value = value;
+  }
+  if (state.searchClearButton) {
+    state.searchClearButton.classList.toggle("is-hidden", !value);
+  }
+  updateLibrarySearchWidth(state);
+}
+
+function updateLibrarySearchWidth(state) {
+  if (!state.searchRow) {
+    return;
+  }
+  const width = state.list.getBoundingClientRect().width || state.list.clientWidth || 0;
+  if (!width) {
+    state.searchRow.style.removeProperty("--library-search-width");
+    return;
+  }
+  const columns = getGalleryColumns(state.list);
+  const fraction = Math.min(1, 3 / Math.max(columns, 3));
+  state.searchRow.style.setProperty(
+    "--library-search-width",
+    `${Math.round(width * fraction)}px`,
+  );
+}
+
+function setLibraryTagSearch(source, value) {
+  const state = getLibraryState(source);
+  const nextValue = String(value || "");
+  if (state.getSearchText() === nextValue) {
+    updateLibrarySearchControls(source);
+    return;
+  }
+  state.setSearchText(nextValue);
+  renderLibraryPreservingScroll(source);
 }
 
 function updateLibraryModeButtons(source = MANUAL_LIBRARY_SOURCE) {
@@ -1099,7 +1256,8 @@ function createGalleryDetailRow(image, source = MANUAL_LIBRARY_SOURCE) {
 
 function renderLibraryListMode(source = MANUAL_LIBRARY_SOURCE) {
   const state = getLibraryState(source);
-  for (const image of state.images) {
+  const images = filteredLibraryImages(state);
+  for (const image of images) {
     const row = document.createElement("button");
     row.type = "button";
     row.className = "library-row";
@@ -1152,6 +1310,7 @@ function toggleGallerySelection(image, source = MANUAL_LIBRARY_SOURCE) {
 
 function renderLibraryGalleryMode(source = MANUAL_LIBRARY_SOURCE) {
   const state = getLibraryState(source);
+  const images = filteredLibraryImages(state);
   const columns = getGalleryColumns(state.list);
   state.list.dataset.galleryColumns = String(columns);
   state.setLastWidth(
@@ -1161,8 +1320,8 @@ function renderLibraryGalleryMode(source = MANUAL_LIBRARY_SOURCE) {
   );
   const selectedId = String(state.getSelectedId() || "").trim();
   const groups = [];
-  for (let index = 0; index < state.images.length; index += columns) {
-    groups.push(state.images.slice(index, index + columns));
+  for (let index = 0; index < images.length; index += columns) {
+    groups.push(images.slice(index, index + columns));
   }
 
   for (const group of groups) {
@@ -1227,7 +1386,7 @@ function syncGallerySelectionView(source = MANUAL_LIBRARY_SOURCE) {
     return;
   }
 
-  const selectedImage = state.images.find(
+  const selectedImage = filteredLibraryImages(state).find(
     (image) => String(image?.id || "").trim() === selectedId,
   );
   if (!selectedImage) {
@@ -1239,14 +1398,22 @@ function syncGallerySelectionView(source = MANUAL_LIBRARY_SOURCE) {
 
 function renderLibrary(source = MANUAL_LIBRARY_SOURCE) {
   const state = getLibraryState(source);
+  const visibleImages = filteredLibraryImages(state);
   state.list.replaceChildren();
+  updateLibrarySearchControls(source);
   if (source === SOLIDIFIED_LIBRARY_SOURCE) {
     renderSolidifiedLibraryCount();
   } else {
     state.meta.textContent = `${state.images.length} 张`;
   }
-  state.empty.classList.toggle("is-hidden", state.images.length > 0);
   syncSelectedGalleryImage(source);
+  state.empty.textContent =
+    state.images.length > 0 && state.getSearchText().trim()
+      ? "没有找到含有该标签的图片。"
+      : source === SOLIDIFIED_LIBRARY_SOURCE
+        ? "暂无已完成标签生成的固化图像。"
+        : "暂无已经生成特征标签的图像。";
+  state.empty.classList.toggle("is-hidden", visibleImages.length > 0);
   updateLibraryModeButtons(source);
   state.list.classList.toggle("is-gallery-mode", state.getViewMode() === "gallery");
   if (state.getViewMode() !== "gallery") {
@@ -1254,7 +1421,7 @@ function renderLibrary(source = MANUAL_LIBRARY_SOURCE) {
     state.setLastWidth(0);
   }
 
-  if (!state.images.length) {
+  if (!visibleImages.length) {
     return;
   }
 
@@ -1526,7 +1693,7 @@ async function refreshAll() {
 function openEditor(image) {
   lockEditorBackgroundScroll();
   editingImage = image;
-  els.editorTitle.textContent = image.rel_path;
+  els.editorTitle.textContent = imageDisplayName(image);
   els.editorImage.alt = image.filename || image.rel_path;
   applyResolvedImageUrl(els.editorImage, image);
   els.tagInput.value = (image.tags || []).join("\n");
@@ -1960,7 +2127,15 @@ function fillProactiveEmojiDialog(config) {
 }
 
 function renderProactiveEmojiProviderOptions(options, selectedId) {
-  els.proactiveEmojiProviderInput.replaceChildren();
+  renderProviderOptions(
+    els.proactiveEmojiProviderInput,
+    options,
+    selectedId,
+  );
+}
+
+function renderProviderOptions(selectEl, options, selectedId) {
+  selectEl.replaceChildren();
   const normalizedOptions = options.length
     ? options
     : [{ id: "", label: "继承 AstrBot 当前会话模型" }];
@@ -1969,7 +2144,10 @@ function renderProactiveEmojiProviderOptions(options, selectedId) {
     option.value = String(item.id || "");
     option.textContent = item.label || item.id || "继承 AstrBot 当前会话模型";
     option.selected = option.value === String(selectedId || "");
-    els.proactiveEmojiProviderInput.appendChild(option);
+    selectEl.appendChild(option);
+  }
+  if (!Array.from(selectEl.options).some((option) => option.selected)) {
+    selectEl.value = "";
   }
 }
 
@@ -2043,6 +2221,104 @@ function readAutoCollectionDialog() {
       300,
       -1,
     ),
+  };
+}
+
+async function openMemeCombatDialog() {
+  els.memeCombatMessage.textContent = "正在读取配置...";
+  els.memeCombatSaveButton.disabled = true;
+  els.memeCombatOverlay.classList.remove("is-hidden");
+  try {
+    const config = await pluginApiGet("meme_combat_config");
+    fillMemeCombatDialog(config || {});
+    els.memeCombatMessage.textContent = "";
+  } catch (error) {
+    els.memeCombatMessage.textContent = `读取配置失败：${error.message || error}`;
+  } finally {
+    els.memeCombatSaveButton.disabled = false;
+  }
+}
+
+function closeMemeCombatDialog() {
+  els.memeCombatOverlay.classList.add("is-hidden");
+  els.memeCombatMessage.textContent = "";
+}
+
+function fillMemeCombatDialog(config) {
+  const follow = config.follow_pattern || {};
+  const burst = config.image_burst || {};
+  const battle = config.battle || {};
+  els.memeCombatEnabledInput.checked = config.enabled === true;
+  els.memeCombatFollowEnabledInput.checked = follow.enabled !== false;
+  els.memeCombatFollowWindowInput.value = String(
+    follow.time_window_seconds ?? 30,
+  );
+  els.memeCombatFollowCountInput.value = String(follow.same_image_count ?? 3);
+  els.memeCombatBurstEnabledInput.checked = burst.enabled !== false;
+  els.memeCombatBurstProbabilityInput.value = String(
+    burst.trigger_probability ?? "0.2",
+  );
+  els.memeCombatBurstCountInput.value = String(burst.burst_count ?? 2);
+  els.memeCombatBattleEnabledInput.checked = battle.enabled !== false;
+  els.memeCombatBattleWindowInput.value = String(
+    battle.time_window_seconds ?? 30,
+  );
+  els.memeCombatBattleCountInput.value = String(
+    battle.continuous_image_count ?? 6,
+  );
+  renderProviderOptions(
+    els.memeCombatBattleProviderInput,
+    Array.isArray(config.provider_options) ? config.provider_options : [],
+    battle.analysis_provider_id || "",
+  );
+}
+
+function readMemeCombatDialog() {
+  return {
+    enabled: els.memeCombatEnabledInput.checked,
+    follow_pattern: {
+      enabled: els.memeCombatFollowEnabledInput.checked,
+      time_window_seconds: clampIntRange(
+        els.memeCombatFollowWindowInput.value,
+        30,
+        1,
+        600,
+      ),
+      same_image_count: clampIntRange(
+        els.memeCombatFollowCountInput.value,
+        3,
+        2,
+        20,
+      ),
+    },
+    image_burst: {
+      enabled: els.memeCombatBurstEnabledInput.checked,
+      trigger_probability: String(
+        clampProbability(els.memeCombatBurstProbabilityInput.value),
+      ),
+      burst_count: clampIntRange(
+        els.memeCombatBurstCountInput.value,
+        2,
+        1,
+        6,
+      ),
+    },
+    battle: {
+      enabled: els.memeCombatBattleEnabledInput.checked,
+      time_window_seconds: clampIntRange(
+        els.memeCombatBattleWindowInput.value,
+        30,
+        1,
+        600,
+      ),
+      continuous_image_count: clampIntRange(
+        els.memeCombatBattleCountInput.value,
+        6,
+        2,
+        30,
+      ),
+      analysis_provider_id: els.memeCombatBattleProviderInput.value,
+    },
   };
 }
 
@@ -2332,6 +2608,26 @@ async function saveAutoCollectionDialog() {
   } finally {
     els.autoCollectionSaveButton.disabled = false;
     els.autoCollectionCancelButton.disabled = false;
+  }
+}
+
+async function saveMemeCombatDialog() {
+  els.memeCombatSaveButton.disabled = true;
+  els.memeCombatCancelButton.disabled = true;
+  els.memeCombatMessage.textContent = "正在保存配置...";
+  try {
+    const config = await pluginApiPost(
+      "meme_combat_config",
+      readMemeCombatDialog(),
+    );
+    fillMemeCombatDialog(config || {});
+    els.memeCombatMessage.textContent = "已保存。";
+    window.setTimeout(closeMemeCombatDialog, 350);
+  } catch (error) {
+    els.memeCombatMessage.textContent = `保存配置失败：${error.message || error}`;
+  } finally {
+    els.memeCombatSaveButton.disabled = false;
+    els.memeCombatCancelButton.disabled = false;
   }
 }
 
@@ -2695,6 +2991,7 @@ async function uploadImages() {
 
 els.refreshButton.addEventListener("click", refreshAll);
 els.openUploadButton.addEventListener("click", openUploadDialogWithProviderCheck);
+els.libraryManageButton.addEventListener("click", scrollToLibraryScopeSwitch);
 els.manualLibraryScopeButton.addEventListener("click", () =>
   setLibraryScopeMode("manual"),
 );
@@ -2717,6 +3014,18 @@ els.solidifiedBackToScopeButton.addEventListener(
   "click",
   scrollToLibraryScopeSwitch,
 );
+els.libraryTagSearchInput.addEventListener("input", (event) =>
+  setLibraryTagSearch(MANUAL_LIBRARY_SOURCE, event.target.value),
+);
+els.libraryTagSearchClearButton.addEventListener("click", () =>
+  setLibraryTagSearch(MANUAL_LIBRARY_SOURCE, ""),
+);
+els.solidifiedLibraryTagSearchInput.addEventListener("input", (event) =>
+  setLibraryTagSearch(SOLIDIFIED_LIBRARY_SOURCE, event.target.value),
+);
+els.solidifiedLibraryTagSearchClearButton.addEventListener("click", () =>
+  setLibraryTagSearch(SOLIDIFIED_LIBRARY_SOURCE, ""),
+);
 els.libraryUploadButton.addEventListener(
   "click",
   openUploadDialogWithProviderCheck,
@@ -2726,6 +3035,7 @@ els.moreConfigButton.addEventListener("click", openConfigDialog);
 els.userSearchButton.addEventListener("click", openUserSearchDialog);
 els.proactiveEmojiButton.addEventListener("click", openProactiveEmojiDialog);
 els.autoCollectionButton.addEventListener("click", openAutoCollectionDialog);
+els.memeCombatButton.addEventListener("click", openMemeCombatDialog);
 els.pendingSkipButton.addEventListener("click", scrollToSolidifiedLibrary);
 els.pendingSelectAllButton.addEventListener("click", toggleAllPendingSelection);
 els.pendingAcceptButton.addEventListener("click", acceptSelectedPendingImages);
@@ -2818,6 +3128,13 @@ els.autoCollectionCancelButton.addEventListener(
 els.autoCollectionOverlay.addEventListener("click", (event) => {
   if (event.target === els.autoCollectionOverlay) {
     closeAutoCollectionDialog();
+  }
+});
+els.memeCombatSaveButton.addEventListener("click", saveMemeCombatDialog);
+els.memeCombatCancelButton.addEventListener("click", closeMemeCombatDialog);
+els.memeCombatOverlay.addEventListener("click", (event) => {
+  if (event.target === els.memeCombatOverlay) {
+    closeMemeCombatDialog();
   }
 });
 els.userSearchSaveButton.addEventListener("click", saveUserSearchDialog);

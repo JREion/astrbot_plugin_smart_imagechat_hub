@@ -218,6 +218,12 @@ class RetrievalMixin:
             if image_path.is_file():
                 if cfg["embed_in_conversation"]:
                     result.chain.append(Image.fromFileSystem(str(image_path)))
+                    await self._after_plugin_sent_image_for_meme_combat(
+                        event,
+                        str(image_path),
+                        source="proactive_emoji",
+                        defer_burst=True,
+                    )
                 else:
                     event.set_extra(
                         PENDING_PROACTIVE_EMOJI_EXTRA_KEY,
@@ -240,6 +246,11 @@ class RetrievalMixin:
             return
         try:
             await event.send(MessageEventResult().file_image(str(image_path)))
+            await self._after_plugin_sent_image_for_meme_combat(
+                event,
+                str(image_path),
+                source="proactive_emoji",
+            )
         except Exception as exc:
             logger.warning(
                 "astrbot_plugin_smart_imagechat_hub: failed to send proactive emoji image: %s",

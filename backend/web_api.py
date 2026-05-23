@@ -3,6 +3,7 @@ from .common import (
     Any,
     DEFAULT_CAPTION_PROVIDER_CONFIG_KEY,
     IMAGE_FILES_CONFIG_KEY,
+    MEME_COMBAT_CONFIG_KEY,
     PLUGIN_NAME,
     PROACTIVE_EMOJI_CONFIG_KEY,
     Path,
@@ -63,6 +64,12 @@ class WebApiMixin:
             self.auto_collection_config_api,
             ["GET", "POST"],
             "Get or update auto image collection settings",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/meme_combat_config",
+            self.meme_combat_config_api,
+            ["GET", "POST"],
+            "Get or update group meme combat settings",
         )
         self.context.register_web_api(
             f"/{PLUGIN_NAME}/auto_collection_pool",
@@ -329,6 +336,41 @@ class WebApiMixin:
             self._cleanup_collection_pool()
 
         return jsonify({"status": "ok", "data": self._auto_collection_snapshot()})
+
+    async def meme_combat_config_api(self):
+        if request.method == "GET":
+            self._refresh_meme_combat_schema()
+            return jsonify({"status": "ok", "data": self._meme_combat_snapshot()})
+
+        payload = await request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            return jsonify({"status": "error", "message": "Invalid config payload"})
+
+        provider_id = str(
+            (
+                payload.get("battle", {})
+                if isinstance(payload.get("battle"), dict)
+                else {}
+            ).get("analysis_provider_id")
+            or ""
+        ).strip()
+        provider_ids = {option["id"] for option in self._chat_provider_options()}
+        if provider_id and provider_id not in provider_ids:
+            battle_payload = (
+                payload.get("battle", {})
+                if isinstance(payload.get("battle"), dict)
+                else {}
+            )
+            payload["battle"] = {**battle_payload, "analysis_provider_id": ""}
+
+        async with self._lock:
+            self.config[MEME_COMBAT_CONFIG_KEY] = (
+                self._normalize_meme_combat_config(payload)
+            )
+            self._save_plugin_config()
+            self._refresh_meme_combat_schema()
+
+        return jsonify({"status": "ok", "data": self._meme_combat_snapshot()})
 
     async def auto_collection_pool_api(self):
         async with self._lock:

@@ -9,6 +9,7 @@ from .backend import (
     ConfigSchemaMixin,
     ImageManagementMixin,
     LLMContextMixin,
+    MemeCombatMixin,
     RetrievalMixin,
     TaggingMixin,
     UtilityMixin,
@@ -22,6 +23,7 @@ from .backend.common import (
     AstrMessageEvent,
     AutoImageCollectionMessageFilter,
     Image,
+    MemeCombatMessageFilter,
     PLUGIN_NAME,
     PLUGIN_VERSION,
     Plain,
@@ -48,6 +50,7 @@ class SmartImageSenderPlugin(
     BackupRestoreMixin,
     AutoCollectionMixin,
     ImageManagementMixin,
+    MemeCombatMixin,
     RetrievalMixin,
     TaggingMixin,
     UtilityMixin,
@@ -75,6 +78,7 @@ class SmartImageSenderPlugin(
         self._index: dict[str, Any] = self._load_index()
         self._collection_pool: dict[str, Any] = self._load_collection_pool()
         self._discarded_collection: dict[str, Any] = self._load_discarded_collection()
+        self._init_meme_combat_state()
         self._caption_progress: dict[str, Any] = self._make_caption_progress(
             status="idle",
             message="No image tag generation task has started.",
@@ -85,10 +89,12 @@ class SmartImageSenderPlugin(
         self._migrate_reply_config()
         self._migrate_progress_link_config()
         self._migrate_auto_collection_config()
+        self._migrate_meme_combat_config()
         self._migrate_scheduled_backup_config()
         self._ensure_caption_provider_setting_initialized()
         self._refresh_caption_tag_category_schema()
         self._refresh_proactive_emoji_schema()
+        self._refresh_meme_combat_schema()
         self._refresh_scheduled_backup_schema()
         self._refresh_image_tag_schema()
         self._cleanup_collection_pool()
@@ -105,6 +111,7 @@ class SmartImageSenderPlugin(
                 await self._auto_collection_worker_task
             except asyncio.CancelledError:
                 pass
+        await self._wait_meme_combat_tasks()
         if self._scheduled_backup_task and not self._scheduled_backup_task.done():
             self._scheduled_backup_task.cancel()
             try:
@@ -203,6 +210,12 @@ class SmartImageSenderPlugin(
                 chain.append(Plain(reply_text))
             chain.append(Image.fromFileSystem(str(image_path)))
             yield event.chain_result(chain)
+            await self._after_plugin_sent_image_for_meme_combat(
+                event,
+                str(image_path),
+                source="user_search",
+                defer_burst=True,
+            )
         else:
             request = await self._request_llm_with_persona(
                 event,
@@ -219,6 +232,12 @@ class SmartImageSenderPlugin(
             )
             yield request
             yield event.chain_result([Image.fromFileSystem(str(image_path))])
+            await self._after_plugin_sent_image_for_meme_combat(
+                event,
+                str(image_path),
+                source="user_search",
+                defer_burst=True,
+            )
 
         event.stop_event()
 
@@ -229,12 +248,18 @@ class SmartImageSenderPlugin(
     @filter.after_message_sent(priority=20)
     async def after_message_sent(self, event: AstrMessageEvent):
         await self._send_pending_proactive_emoji(event)
+        await self._send_pending_meme_combat_burst(event)
 
     # This handler intentionally never activates; the custom filter performs
     # the collection side effect without waking the bot.
     @filter.custom_filter(AutoImageCollectionMessageFilter, priority=5)
     @filter.event_message_type(filter.EventMessageType.ALL, priority=5)
     async def on_any_message_collect_images(self, event: AstrMessageEvent):
+        return
+
+    @filter.custom_filter(MemeCombatMessageFilter, priority=4)
+    @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE, priority=4)
+    async def on_group_meme_combat(self, event: AstrMessageEvent):
         return
 
     @filter.command("smart_image_sync", priority=50)

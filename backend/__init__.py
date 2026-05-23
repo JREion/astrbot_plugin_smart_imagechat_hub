@@ -4,6 +4,7 @@ from .caption_library import CaptionLibraryMixin
 from .config_schema import ConfigSchemaMixin
 from .image_management import ImageManagementMixin
 from .llm_context import LLMContextMixin
+from .meme_combat import MemeCombatMixin
 from .retrieval import RetrievalMixin
 from .tagging import TaggingMixin
 from .utils import UtilityMixin
@@ -16,6 +17,7 @@ __all__ = [
     "ConfigSchemaMixin",
     "ImageManagementMixin",
     "LLMContextMixin",
+    "MemeCombatMixin",
     "RetrievalMixin",
     "TaggingMixin",
     "UtilityMixin",

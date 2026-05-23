@@ -6,7 +6,7 @@ configuration semantics change.
 
 ## Version
 
-- Current plugin version: `v2.4.2`
+- Current plugin version: `v2.4.8`
 - AstrBot requirement: `>=4.24.2`
 - Main entry: `main.py`
 - Backend package: `backend/`
@@ -33,6 +33,7 @@ astrbot_plugin_smart_imagechat_hub/
 |   |-- backup_restore.py
 |   |-- auto_collection.py
 |   |-- image_management.py
+|   |-- meme_combat.py
 |   |-- retrieval.py
 |   |-- tagging.py
 |   `-- utils.py
@@ -77,6 +78,12 @@ astrbot_plugin_smart_imagechat_hub/
 - `reply_after_search`: Custom/fallback replies for user image search.
 - `proactive_emoji_reply`: Controls probabilistic proactive emoji/image replies
   after normal LLM responses.
+- `meme_combat`: Controls group meme-combat behavior. The top-level `enabled`
+  switch gates all runtime tracking. `follow_pattern` sends the same image after
+  repeated equal images in a short window. `image_burst` probabilistically sends
+  extra related images after this plugin sends an image. `battle` detects
+  continuous image-only group dialogue, quickly analyzes two sampled images with
+  the configured provider, then retrieves a semantically close library image.
 - `auto_image_collection`: Controls the Page and runtime auto-collection flow.
   Images are first stored in the pending pool, then moved into the solidified
   library for captioning and retrieval. `auto_reject_discarded` optionally
@@ -106,6 +113,10 @@ message hooks stay in `main.py` and call methods supplied by backend mixins.
   import validation, restore logic, and backup serialization helpers.
 - `backend/auto_collection.py`: group-image collection queue, URL/local image
   resolution, pending pool, solidified library lifecycle, and collection limits.
+- `backend/meme_combat.py`: bounded group-image observer queue, in-memory image
+  window tracking, join-pattern replies, image-burst sends, continuous-image
+  battle detection, quick visual semantic analysis, and cooldown/state reset
+  rules to prevent image loops.
 - `backend/image_management.py`: per-image tag updates, global tags, deletion,
   and Page image item formatting.
 - `backend/retrieval.py`: local candidate ranking, LLM match/proactive emoji
@@ -126,6 +137,8 @@ All routes are registered below `/api/plug/astrbot_plugin_smart_imagechat_hub/`.
 - `GET/POST caption_tag_category_settings`: Read/write caption provider and
   tag-category settings. Optional `recaption_all` queues full regeneration.
 - `GET/POST proactive_emoji_config`: Read/write proactive reply settings.
+- `GET/POST meme_combat_config`: Read/write group meme-combat settings and
+  provider options for the battle quick-analysis model.
 - `GET/POST auto_collection_config`: Read/write auto-collection settings.
 - `GET auto_collection_pool`: Inspect pending auto-collected images.
 - `POST auto_collection_accept`: Batch accept pending images into the
@@ -166,14 +179,23 @@ All routes are registered below `/api/plug/astrbot_plugin_smart_imagechat_hub/`.
 Main sections in `pages/image-center-page/index.html`:
 
 - Progress panel: `statusBadge`, `progressBar`, `percentText`, count fields,
-  `refreshButton`, `openUploadButton`, `tagCategoryButton`, `importButton`,
-  `exportButton`.
+  `refreshButton`, `openUploadButton`, `libraryManageButton`,
+  `tagCategoryButton`, `importButton`, `exportButton`. `libraryManageButton`
+  scrolls the Page to `libraryScopeSwitchRow`.
+- Capabilities/global-tags responsive row: `capability-tags-layout` wraps the
+  capabilities panel and global tags panel. It renders as two equal-height
+  columns on wide viewports and falls back to the previous stacked layout on
+  narrow screens.
 - Capabilities panel: `userSearchButton`, `proactiveEmojiButton`,
-  `moreConfigButton`.
+  `autoCollectionButton`, `memeCombatButton`, `moreConfigButton`. Buttons render
+  as one or two equal-width columns depending on available width, keep labels on
+  one line, and keep the yellow more-config button on the final row.
 - Global tags panel: `globalTagsInput`, `globalTagsPreview`,
   `globalTagsSaveButton`.
-- Library panel: `libraryList`, `libraryListModeButton`, `libraryGalleryModeButton`,
-  `libraryUploadButton`, `emptyLibraryText`.
+- Library panel: `libraryTagSearchInput`, `libraryTagSearchClearButton`,
+  `libraryList`, `libraryListModeButton`, `libraryGalleryModeButton`,
+  `libraryUploadButton`, `emptyLibraryText`. The search row sits above the image
+  list, outside the sticky header, and filters displayed manual images by tag.
 - Library scope switch: `manualLibraryScopeButton` and
   `autoCollectionScopeButton` choose whether the Page shows only the manual
   upload library or only the auto-collection pending/solidified sections.
@@ -191,16 +213,23 @@ Main sections in `pages/image-center-page/index.html`:
   yellow at 80% capacity and red at or above the limit.
 - Solidified library panel: `solidifiedLibraryList`,
   `solidifiedListModeButton`, `solidifiedGalleryModeButton`,
+  `solidifiedLibraryTagSearchInput`, `solidifiedLibraryTagSearchClearButton`,
   `solidifiedBackToScopeButton`, `solidifiedLibraryMeta`,
   `emptySolidifiedLibraryText`. `solidifiedLibraryMeta` displays `current/limit 张`
   from `solidified_library_limit`, uses the same yellow/red capacity colors, and
   `solidifiedBackToScopeButton` scrolls back to the manual/auto library scope
-  switch.
+  switch. The solidified search row uses the same tag-only local filtering as
+  the manual library.
 - Auto-collection dialog: `autoCollectionButton`, `autoCollectionOverlay`,
   save/cancel buttons, and the auto-collection config inputs, including
   `autoCollectionRejectDiscardedInput`.
+- Meme-combat dialog: `memeCombatOverlay`, save/cancel buttons, the total
+  enable switch, `memeCombatFollow*` inputs for join-pattern settings,
+  `memeCombatBurst*` inputs for image burst settings, and
+  `memeCombatBattle*` inputs including `memeCombatBattleProviderInput`.
 - Image editor overlay: `editorOverlay`, `editorImage`, `tagInput`,
-  `globalTagChoices`, save/cancel/close buttons.
+  `globalTagChoices`, save/cancel/close buttons. `editorTitle` displays only
+  the image filename and suffix, not the full relative library path.
 - Caption settings overlay: `tagCategoryOverlay`, `captionProviderInput`,
   preset/custom category inputs, `tagCategoryRecaptionInput`.
 - Proactive emoji overlay: enable/provider/meme-only/embed/probability inputs.
@@ -235,8 +264,11 @@ backup package version constant in sync with `PLUGIN_VERSION`:
   between 3 and 6 columns using `getGalleryColumns()`, which is width-driven
   rather than CSS auto-flow based.
 - The manual library and the solidified library now have separate local view
-  modes and separate selection state. The Page also keeps a pending-pool
-  selection model for batch accept/discard actions.
+  modes, tag-search state, and selection state. `filteredLibraryImages()` checks
+  `merged_tags`, `tags`, `auto_tags`, `manual_tags`, and selected global tags
+  before list/gallery rendering; filtering is local to the loaded Page snapshot.
+  The Page also keeps a pending-pool selection model for batch accept/discard
+  actions.
 - Library state and gallery stability: `applyLibraryState` fingerprints the
   library snapshot and skips DOM rebuilds when polling returns unchanged image
   data. `ResizeObserver` is used for gallery layout changes, and
@@ -247,16 +279,16 @@ backup package version constant in sync with `PLUGIN_VERSION`:
   and defers gallery refreshes while the page is actively scrolling, which
   prevents the sticky header from snapping back on iOS browsers.
 - Dialogs: open/fill/read/save functions for upload, provider warning, tag
-  categories, proactive reply, auto collection, user search, more config,
-  import, and editor.
+  categories, proactive reply, meme combat, auto collection, user search, more
+  config, import, and editor.
 - Data actions: `refreshAll`, `refreshLibrary`, `saveEditor`,
   `saveGlobalTags`, `deleteImage`, `acceptSelectedPendingImages`,
   `discardSelectedPendingImages`, `exportConfig`, `manualExportConfig`,
   `downloadScheduledBackup`, `deleteScheduledBackup`, `importConfig`,
   `uploadImages`.
-  `setLibraryViewMode`, `toggleGallerySelection`, `togglePendingSelection`, and
-  `scheduleLibraryRender` keep the gallery/list switch local to the Page
-  session.
+  `scrollToLibraryScopeSwitch`, `setLibraryViewMode`, `toggleGallerySelection`,
+  `togglePendingSelection`, and `scheduleLibraryRender` keep navigation and
+  gallery/list switch state local to the Page session.
 
 ## main.py Flow Map
 
@@ -270,9 +302,12 @@ live in `backend/` mixin modules.
 
 - `SmartImageSenderPlugin.__init__`: Initializes shared runtime state, loads
   index/pool/discarded-history JSON, registers Web APIs via `WebApiMixin`, and
-  publishes the weak plugin reference used by `AutoImageCollectionMessageFilter`.
+  publishes the weak plugin reference used by auto-collection and meme-combat
+  observer filters.
 - `initialize`: Runs config migrations, refreshes schemas, syncs the library,
   starts the upload watcher, scheduled-backup loop, and auto-collection worker.
+  The meme-combat observer worker is created lazily on the first observed group
+  image event after its total switch is enabled.
 - `terminate`: Cancels background tasks, waits for caption cleanup, persists
   index/pool/discarded-history data, and clears the auto-collection plugin
   reference.
@@ -293,7 +328,14 @@ live in `backend/` mixin modules.
   switch, explicit wake state, and request keyword before syncing the library,
   reranking candidates, asking the LLM for a shortlist, and sending one image.
 - `on_decorating_result`: Proactive emoji/image append hook for LLM replies.
-- `after_message_sent`: Sends queued independent proactive image replies.
+- `after_message_sent`: Sends queued independent proactive image replies and
+  deferred meme-combat burst sends.
+- `on_group_meme_combat`: Non-activating placeholder for
+  `MemeCombatMessageFilter`. The filter returns `False` after enqueueing the
+  group event, so ordinary group messages are observed without waking this
+  plugin handler. The background worker keeps bounded in-memory image-window
+  state, ignores the bot's own images for new windows, and resets the active
+  image statistics whenever this plugin sends an image.
 - `sync_images_command`: Admin command to resync the library.
 
 ### User Image Search Flow
@@ -317,12 +359,44 @@ The user search flow is deliberately lightweight:
 8. `_fallback_match` picks from the locally highest-scored pool if the LLM call
    fails.
 
+### Group Meme Combat Flow
+
+- `MemeCombatMessageFilter` and `_enqueue_meme_combat_event`: observe group
+  image traffic as a filter side effect and enqueue it without activating the
+  handler. Enqueued jobs snapshot only the required group/sender/message/image
+  fields. The queue is bounded by `MEME_COMBAT_QUEUE_MAXSIZE`, so pressure is
+  handled by skipping new observations instead of growing memory.
+- `_meme_combat_worker_loop` and `_track_group_meme_combat`: process queued
+  group messages when `meme_combat.enabled` is true. They store at most
+  `MEME_COMBAT_MAX_EVENTS_PER_GROUP` recent image records per group and evict
+  old group states beyond `MEME_COMBAT_MAX_GROUPS`.
+- Join-pattern mode uses a cheap digest path first: local files are hashed from
+  size, suffix, and a small prefix; OneBot/QQ-style stable image file IDs are
+  keyed before URL fields; URL/base64 images are keyed by normalized source
+  string. When the same digest reaches `same_image_count` inside
+  `follow_pattern.time_window_seconds`, the bot sends the same component and
+  resets the current group window.
+- Image-burst mode is only counted from image sends performed by this plugin:
+  user-search image replies, proactive emoji replies, join-pattern replies,
+  battle replies, and burst replies. If probability and cooldown pass, it ranks
+  library candidates against the previous image tags and sends up to
+  `image_burst.burst_count` related images.
+- Battle mode detects a streak of image-only messages inside
+  `battle.time_window_seconds`. At `battle.continuous_image_count`, it samples
+  two images, resolves them only at trigger time, calls the configured quick
+  analysis provider or the current AstrBot session provider, and searches the
+  local library from the compact semantic keywords. After sending, the window is
+  cleared to avoid self-trigger loops.
+
 ### Captioning And Indexing
 
 - `_sync_library`: Syncs configured/uploaded images into `image_index.json`,
   preserves manual/global tags, queues missing/stale captions, refreshes config
   schemas, and computes uncached image digests through `_cached_sha256_async` so
-  large files do not monopolize the event loop.
+  large files do not monopolize the event loop. During Page polling it preserves
+  `caption_status == "running"` while the caption task is alive, and
+  `_sync_library_if_changed` treats stale `running` items without a live task as
+  recoverable work.
 - `_create_persistent_backup`: Builds the canonical ZIP backup snapshot, writes
   it to a temporary file, stores it in `scheduled_backups/`, and returns the
   stored backup metadata. `caption_export_config_api` uses the same code path so
@@ -383,11 +457,15 @@ The user search flow is deliberately lightweight:
 - `_refresh_image_tag_schema`: Builds WebUI templates for current images.
 - `_refresh_caption_tag_category_schema`: Updates provider/category options.
 - `_refresh_proactive_emoji_schema`: Updates proactive provider options.
+- `_refresh_meme_combat_schema`: Updates the battle quick-analysis provider
+  options for native WebUI.
 - `_plugin_config_snapshot`, `_update_plugin_config_from_payload`: Page config IO.
 - `_tag_category_settings_snapshot`, `_normalize_tag_category_settings`: Caption
   category config IO.
 - `_proactive_emoji_snapshot`, `_normalize_proactive_emoji_config`: Proactive
   reply config IO.
+- `_meme_combat_snapshot`, `_normalize_meme_combat_config`: Group meme-combat
+  config IO.
 
 ### Backup And Restore
 

@@ -258,6 +258,99 @@
       }
     }
   },
+  "meme_combat": {
+    "description": "🥊 群聊智能斗图",
+    "type": "object",
+    "default": {},
+    "hint": "在群聊图片对话中自动加入队形、按概率连发相关图片，或在连续图片团战中检索语义相近的图库图片。运行时只保留短时间窗口状态，以降低服务器负担。",
+    "items": {
+      "enabled": {
+        "description": "开启群聊智能斗图功能",
+        "type": "bool",
+        "default": false,
+        "hint": "总开关。关闭后不会统计群聊图片窗口，也不会触发加入队形、图片连发或参与团战 (即使打开了下面的子功能开关)。"
+      },
+      "follow_pattern": {
+        "description": "加入队形",
+        "type": "object",
+        "default": {},
+        "items": {
+          "enabled": {
+            "description": "开启加入队形",
+            "type": "bool",
+            "default": true,
+            "hint": "如果多名群友连续发送相同图片，bot 会跟着队形进行接龙。"
+          },
+          "time_window_seconds": {
+            "description": "统计的时间窗口 (秒)",
+            "type": "int",
+            "default": 30
+          },
+          "same_image_count": {
+            "description": "相同图片的出现次数",
+            "type": "int",
+            "default": 3,
+            "hint": "注意：请设置为 >=2，避免 bot 跟着单个用户发同一张图。"
+          }
+        }
+      },
+      "image_burst": {
+        "description": "图片连发",
+        "type": "object",
+        "default": {},
+        "items": {
+          "enabled": {
+            "description": "开启图片连发",
+            "type": "bool",
+            "default": true,
+            "hint": "bot 有一定概率在某次图片回复中，连续发送多张表情包。"
+          },
+          "trigger_probability": {
+            "description": "触发连发的概率",
+            "type": "string",
+            "default": "0.2",
+            "hint": "取值范围 0-1。只统计 bot 使用本插件能力发送包含图片的回复次数；其他插件控制 bot 发送的图片不计算。"
+          },
+          "burst_count": {
+            "description": "连发图片的数量",
+            "type": "int",
+            "default": 2,
+            "hint": "bot 最开始发出的那张图片不计入连发数量。"
+          }
+        }
+      },
+      "battle": {
+        "description": "参与团战",
+        "type": "object",
+        "default": {},
+        "items": {
+          "enabled": {
+            "description": "开启参与团战",
+            "type": "bool",
+            "default": true,
+            "hint": "如果群聊进入斗图团战 (对话中连续出现图片)，bot 会抽取其中 2 张图片快速分析语义，从自己的图库中搜索表情包参与团战。"
+          },
+          "time_window_seconds": {
+            "description": "统计的时间窗口 (秒)",
+            "type": "int",
+            "default": 30
+          },
+          "continuous_image_count": {
+            "description": "对话中连续出现图片的数量",
+            "type": "int",
+            "default": 6
+          },
+          "analysis_provider_id": {
+            "description": "图片语义快速分析 LLM 模型",
+            "type": "string",
+            "default": "",
+            "options": [],
+            "hint": "继承 AstrBot 系统配置中的模型提供商列表；留空或所选模型不可用时，继承 AstrBot 当前会话模型选择策略。建议选择实时性更强的模型，如 gpt-5.4-mini 或 deepseek-v4-flash。"
+          }
+        }
+      }
+    }
+  },
   "scheduled_backup": {
     "description": "🗄️ 定时备份",
     "type": "object",
