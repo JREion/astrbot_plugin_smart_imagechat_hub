@@ -1,5 +1,153 @@
 # DEVELOP
 
+# v2.5.7
+
+- Optimized the Page external-import pending queue for large imports. External
+  pending cards are now updated incrementally by image id instead of rebuilding
+  the entire grid on every poll, and Page thumbnail loading is concurrency
+  limited so hundreds of pending images do not flood the AstrBot web process.
+- Changed external-import pending thumbnails to prefer a direct lightweight
+  route (`external_import_thumb`) instead of JSON data URLs, avoiding large
+  base64 payloads during bulk import. The route falls back to the stored image
+  file when no generated thumbnail exists.
+- Follow-up bugfix without a version bump: external-import pending thumbnails
+  now fall back to the existing Page bridge data-URL API when direct image
+  transport is unavailable in the AstrBot Page container, and the thumbnail
+  request queue waits for the actual image `load/error` event instead of only
+  URL resolution.
+- Follow-up bugfix without a version bump: backup restore now preserves
+  external-import images whose stored caption status is still `pending` or
+  `failed`, even when they already carry filename fallback tags, so untagged
+  images return to the Page "导入进程" panel instead of the external library
+  manager after export/import.
+- Follow-up bugfix without a version bump: the external import directory dialog
+  now treats an active external-import auto-caption run as a busy import process
+  while pending external images remain, keeps count/start disabled, and shows
+  the warning in the yellow stat-hint box until the run finishes or is
+  cancelled.
+- Reduced external-import worker lock contention by moving file copying out of
+  the plugin-wide lock, using metadata-backed digest dedupe at import start, and
+  saving lightweight index/state batches during import while deferring full
+  config/schema refresh to the end of the import.
+- Skipped normal background library sync while an external import task is
+  actively copying files, preventing Page polling and the upload watcher from
+  repeatedly rescanning the growing external library.
+- Added Page dialog protection while an external import is running. Opening the
+  external import chooser during an active import now shows a running-import
+  message and disables both image counting and import start until the active
+  import completes.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.5.7`.
+
+# v2.5.6
+
+- Follow-up bugfix without a version bump: external-import destructive warning
+  "不再提示" choices now take effect immediately in memory and persist through
+  `external_import_state.json`, with localStorage kept as a browser-side cache.
+- Added the same default image caption provider warning flow to the external
+  import "开始" action before starting automatic tag generation.
+- Treated a configured default image caption provider as missing when its
+  provider id no longer exists in the current AstrBot service, covering backups
+  restored from servers with different provider configurations.
+- Added a backend guard so `external_import_start_caption` cannot start without
+  a valid current default image caption provider.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.5.6`.
+
+# v2.5.5
+
+- Changed the external import flow so copying images into the Page "导入进程"
+  queue no longer starts automatic tag generation immediately. External pending
+  images stay behind the persisted external pause gate during and after import;
+  the Page button now shows "请稍候" while copying, then enables "开始" after the
+  import finishes.
+- Added the `external_import_start_caption` Page API for the new explicit start
+  action while keeping the older pause/resume endpoints for compatibility.
+- Replaced unloaded Page thumbnail rendering with a transparent placeholder and
+  animated macOS/iOS-style spinner on `img.is-loading`, preserving lazy
+  `IntersectionObserver` loading and existing image URL caches.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.5.5`.
+
+# v2.5.4
+
+- Fixed external-import pending deletion progress totals by allowing the
+  background caption worker to shrink `total` when pending images are deleted
+  while a caption job is active.
+- Added a yellow hint in the external directory chooser after selecting a
+  folder, reminding users to run the explicit image-count step before import.
+- Added Page warning overlays for external pending batch delete and external
+  caption cancellation. Each warning supports a local "不再提示" checkbox, and
+  cancel-caption is disabled when there are no external pending images.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.5.4`.
+
+# v2.5.3
+
+- Refined the external import pending-image cards. The card container is now
+  borderless, the import date under each image is hidden, and only the thumbnail
+  itself keeps a light border while preserving the selected check overlay and
+  caption status text.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.5.3`.
+
+# v2.5.2
+
+- Improved the external import pending-image grid. Pending cards now use a fixed
+  compact width so one or two remaining images no longer stretch across the
+  panel, while the external-import panel can show up to 12 compact cards per row
+  without changing other library grids.
+- Improved the external import directory chooser. The tree now renders as a
+  compact folder picker with folder icons, explicit expand/collapse controls,
+  default top-level plugin directories only, and a scrollable dialog-local tree
+  area for servers with many installed plugins.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.5.2`.
+
+# v2.5.1
+
+- Fixed external-import images not rendering in the Page by letting pending
+  external images use the same JSON image-data resolution path as the normal
+  library, while keeping direct image routes as a fallback. Thumbnail requests
+  are now gated by `IntersectionObserver` so large external queues do not fetch
+  every image at once.
+- Fixed external-import caption pause semantics. The pause flag is now persisted
+  in `external_import_state.json`, survives Page navigation and plugin/service
+  restarts, excludes only external-import pending images from caption queues, and
+  toggles the Page button between pause and resume states.
+- Fixed external pending-image deletion progress refresh. Deleting pending
+  external images now immediately recomputes and returns caption progress so the
+  top progress total/remaining counts update in the Page.
+- Added a prominent "从外部导入" action to the external library manager header,
+  reusing the same dialog flow as the capabilities-panel import button.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.5.1`.
+
+# v2.5.0
+
+- Added Page-only external plugin library import. The Page capabilities panel now
+  exposes "从其他插件导入图库", opens a persistent-data directory tree rooted at
+  AstrBot `data/plugin_data/`, excludes this plugin's own data directory, and
+  requires an explicit image-count step before enabling import.
+- Added `backend/external_import.py` with isolated import state, external
+  directory validation, incremental streaming file copies, cross-library digest
+  dedupe, manual pending-delete digest history, and Page APIs for tree, stat,
+  start, status, pending list, pending delete, pause, and cancel.
+- Added the external imported library source `external_imported` stored under
+  `files/external_import/imported_library/`. Imported images enter the normal
+  caption/index flow as pending items and move into the external library manager
+  once tagged, while remaining separate from manual uploads and auto-collected
+  solidified images.
+- Extended the Page library scope switch with "其他插件的图库". This view contains
+  a lightweight pending import process panel using lazy direct thumbnail URLs for
+  large batches, plus an external library tag-management section that reuses the
+  existing list/gallery editor and delete flow.
+- Extended backup/export restore snapshots to include external-import image
+  files and `external_import_state.json` so imported external libraries and
+  manually deleted pending digests survive migration.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.5.0`.
+
 # v2.4.8
 
 - Follow-up bugfix without a version bump: accepting images from the pending

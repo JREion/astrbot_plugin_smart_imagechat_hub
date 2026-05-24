@@ -120,6 +120,78 @@ class WebApiMixin:
             "Discard pending auto-collected images",
         )
         self.context.register_web_api(
+            f"/{PLUGIN_NAME}/external_import_tree",
+            self.external_import_tree_api,
+            ["GET"],
+            "Get external plugin data directory tree",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/external_import_stat",
+            self.external_import_stat_api,
+            ["POST"],
+            "Count images under an external plugin data directory",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/external_import_start",
+            self.external_import_start_api,
+            ["POST"],
+            "Import images from an external plugin data directory",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/external_import_status",
+            self.external_import_status_api,
+            ["GET"],
+            "Get external image import status",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/external_import_pending",
+            self.external_import_pending_api,
+            ["GET"],
+            "Get external imported images waiting for tags",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/external_import_thumb/<image_id>",
+            self.external_import_thumb_api,
+            ["GET"],
+            "Get external import pending thumbnail",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/external_import_delete_pending",
+            self.external_import_delete_pending_api,
+            ["POST"],
+            "Delete pending external imported images",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/external_import_warning_preference",
+            self.external_import_warning_preference_api,
+            ["POST"],
+            "Update external import warning preferences",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/external_import_pause_caption",
+            self.external_import_pause_caption_api,
+            ["POST"],
+            "Pause external import tag generation",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/external_import_start_caption",
+            self.external_import_start_caption_api,
+            ["POST"],
+            "Start external import tag generation",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/external_import_resume_caption",
+            self.external_import_resume_caption_api,
+            ["POST"],
+            "Resume external import tag generation",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/external_import_cancel_caption",
+            self.external_import_cancel_caption_api,
+            ["POST"],
+            "Cancel external import tag generation and remove pending images",
+        )
+        self.context.register_web_api(
             f"/{PLUGIN_NAME}/caption_update_tags",
             self.caption_update_tags_api,
             ["POST"],
@@ -194,7 +266,15 @@ class WebApiMixin:
 
     async def caption_progress_api(self):
         await self._sync_library_if_changed(caption_mode="background")
-        return jsonify({"status": "ok", "data": self._caption_progress_snapshot()})
+        return jsonify(
+            {
+                "status": "ok",
+                "data": {
+                    **self._caption_progress_snapshot(),
+                    "external_import": self._external_import_status_snapshot(),
+                },
+            }
+        )
 
     async def caption_start_api(self):
         await self._sync_library(caption_mode="background")
@@ -505,6 +585,135 @@ class WebApiMixin:
                 "data": {
                     "result": result,
                     "pool": self._collection_pool_snapshot(),
+                },
+            }
+        )
+
+    async def external_import_tree_api(self):
+        return jsonify(
+            {"status": "ok", "data": self._external_import_visible_tree()}
+        )
+
+    async def external_import_stat_api(self):
+        payload = await request.get_json(silent=True) or {}
+        directory = str(payload.get("directory") or "").strip()
+        try:
+            stat = await self._external_import_stat_directory_async(directory)
+        except ValueError as exc:
+            return jsonify({"status": "error", "message": str(exc)})
+        return jsonify({"status": "ok", "data": stat})
+
+    async def external_import_start_api(self):
+        payload = await request.get_json(silent=True) or {}
+        directory = str(payload.get("directory") or "").strip()
+        try:
+            await self._sync_library_if_changed(caption_mode="none")
+            status = await self._start_external_import(directory)
+        except ValueError as exc:
+            return jsonify({"status": "error", "message": str(exc)})
+        return jsonify({"status": "ok", "data": status})
+
+    async def external_import_status_api(self):
+        return jsonify(
+            {"status": "ok", "data": self._external_import_status_snapshot()}
+        )
+
+    async def external_import_pending_api(self):
+        return jsonify(
+            {"status": "ok", "data": self._external_import_pending_snapshot()}
+        )
+
+    async def external_import_thumb_api(self, image_id: str):
+        try:
+            image_path = await self._external_import_image_response_path(image_id)
+        except ValueError as exc:
+            message = str(exc)
+            status_code = 404 if "not found" in message or "missing" in message else 400
+            return jsonify({"status": "error", "message": message}), status_code
+        return await send_file(image_path)
+
+    async def external_import_delete_pending_api(self):
+        payload = await request.get_json(silent=True) or {}
+        image_ids = self._normalize_ids(payload.get("image_ids", []))
+        if not image_ids:
+            return jsonify({"status": "error", "message": "image_ids is required"})
+        async with self._lock:
+            result = self._delete_external_pending_images(image_ids)
+        return jsonify(
+            {
+                "status": "ok",
+                "data": {
+                    "result": result,
+                    "pending": self._external_import_pending_snapshot(),
+                    "library": self._caption_library_snapshot(),
+                    "progress": self._caption_progress_snapshot(),
+                },
+            }
+        )
+
+    async def external_import_warning_preference_api(self):
+        payload = await request.get_json(silent=True) or {}
+        action = str(payload.get("action") or "").strip()
+        skip = self._to_bool(payload.get("skip"), False)
+        try:
+            async with self._lock:
+                preferences = self._set_external_import_warning_preference(
+                    action,
+                    skip,
+                )
+        except ValueError as exc:
+            return jsonify({"status": "error", "message": str(exc)})
+        return jsonify({"status": "ok", "data": {"warning_preferences": preferences}})
+
+    async def external_import_pause_caption_api(self):
+        await self._pause_external_captioning()
+        return jsonify(
+            {
+                "status": "ok",
+                "data": {
+                    "pending": self._external_import_pending_snapshot(),
+                    "progress": self._caption_progress_snapshot(),
+                },
+            }
+        )
+
+    async def external_import_resume_caption_api(self):
+        await self._resume_external_captioning()
+        return jsonify(
+            {
+                "status": "ok",
+                "data": {
+                    "pending": self._external_import_pending_snapshot(),
+                    "progress": self._caption_progress_snapshot(),
+                },
+            }
+        )
+
+    async def external_import_start_caption_api(self):
+        try:
+            await self._start_external_captioning()
+        except ValueError as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
+        return jsonify(
+            {
+                "status": "ok",
+                "data": {
+                    "pending": self._external_import_pending_snapshot(),
+                    "progress": self._caption_progress_snapshot(),
+                },
+            }
+        )
+
+    async def external_import_cancel_caption_api(self):
+        result = await self._cancel_external_captioning()
+        return jsonify(
+            {
+                "status": "ok",
+                "data": {
+                    "result": result,
+                    "pending": self._external_import_pending_snapshot(),
+                    "library": self._caption_library_snapshot(),
+                    "progress": self._caption_progress_snapshot(),
                 },
             }
         )

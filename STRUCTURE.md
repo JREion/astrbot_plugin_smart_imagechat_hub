@@ -6,7 +6,7 @@ configuration semantics change.
 
 ## Version
 
-- Current plugin version: `v2.4.8`
+- Current plugin version: `v2.5.7`
 - AstrBot requirement: `>=4.24.2`
 - Main entry: `main.py`
 - Backend package: `backend/`
@@ -29,6 +29,7 @@ astrbot_plugin_smart_imagechat_hub/
 |   |-- web_api.py
 |   |-- llm_context.py
 |   |-- config_schema.py
+|   |-- external_import.py
 |   |-- caption_library.py
 |   |-- backup_restore.py
 |   |-- auto_collection.py
@@ -60,6 +61,12 @@ astrbot_plugin_smart_imagechat_hub/
 - Auto-collection pool metadata: `auto_collection_pool.json`
 - Auto-collection discarded-image digest history:
   `auto_collection_discarded.json`
+- External plugin imported library: `files/external_import/imported_library/`
+- External import thumbnail cache: `files/external_import/thumbnails/`
+- External plugin import state and manually deleted pending-image digests:
+  `external_import_state.json`
+  The same state file stores the persistent external-import caption pause flag
+  and Page destructive-warning "do not show again" preferences.
 - Scheduled backup storage: `scheduled_backups/`
 - Plugin config image list: `library_builder.image_files`
 - Global tags: `library_builder.global_tags`
@@ -113,6 +120,11 @@ message hooks stay in `main.py` and call methods supplied by backend mixins.
   import validation, restore logic, and backup serialization helpers.
 - `backend/auto_collection.py`: group-image collection queue, URL/local image
   resolution, pending pool, solidified library lifecycle, and collection limits.
+- `backend/external_import.py`: Page-only import from sibling AstrBot plugin
+  persistent-data directories, directory-tree/stat APIs, incremental copy with
+  cross-library digest dedupe, pending external-image lifecycle, direct
+  thumbnail serving for pending imports, manual pending delete digest history,
+  and pause/cancel controls for imported images waiting for tags.
 - `backend/meme_combat.py`: bounded group-image observer queue, in-memory image
   window tracking, join-pattern replies, image-burst sends, continuous-image
   battle detection, quick visual semantic analysis, and cooldown/state reset
@@ -144,6 +156,31 @@ All routes are registered below `/api/plug/astrbot_plugin_smart_imagechat_hub/`.
 - `POST auto_collection_accept`: Batch accept pending images into the
   solidified library.
 - `POST auto_collection_discard`: Batch discard pending images.
+- `GET external_import_tree`: Return a directory tree rooted at AstrBot
+  `data/plugin_data/`, excluding this plugin's own data directory.
+- `POST external_import_stat`: Count supported image files under one selected
+  external directory and its subdirectories.
+- `POST external_import_start`: Start an incremental import from the selected
+  external directory into this plugin's external imported library.
+- `GET external_import_status`: Return active/last external import counters,
+  pending count, external library count, and persistent caption pause state.
+- `GET external_import_pending`: Return imported external images that are still
+  waiting for automatic tag generation.
+- `GET external_import_thumb/<image_id>`: Serve a direct thumbnail for external
+  pending images, falling back to the imported image file when no generated
+  thumbnail cache exists.
+- `POST external_import_delete_pending`: Delete selected pending external images
+  and remember their digests so future syncs skip them.
+- `POST external_import_pause_caption`: Persistently pause automatic captioning
+  of external-import pending images. Paused external images are kept out of the
+  shared caption queue until resumed.
+- `POST external_import_start_caption`: Explicitly start automatic captioning
+  for external-import pending images after the copy/import phase has completed.
+- `POST external_import_resume_caption`: Explicitly resume automatic captioning
+  for external-import pending images.
+- `POST external_import_cancel_caption`: Cancel captioning and remove untagged
+  external imported images without recording deleted digests, so future syncs
+  may import them again.
 - `GET/POST scheduled_backup_config`: Read/write scheduled-backup settings and
   refresh the visible backup list schema.
 - `GET scheduled_backup_list`: Return the current stored scheduled backups,
@@ -187,7 +224,8 @@ Main sections in `pages/image-center-page/index.html`:
   columns on wide viewports and falls back to the previous stacked layout on
   narrow screens.
 - Capabilities panel: `userSearchButton`, `proactiveEmojiButton`,
-  `autoCollectionButton`, `memeCombatButton`, `moreConfigButton`. Buttons render
+  `autoCollectionButton`, `memeCombatButton`, `externalImportButton`,
+  `moreConfigButton`. Buttons render
   as one or two equal-width columns depending on available width, keep labels on
   one line, and keep the yellow more-config button on the final row.
 - Global tags panel: `globalTagsInput`, `globalTagsPreview`,
@@ -196,9 +234,10 @@ Main sections in `pages/image-center-page/index.html`:
   `libraryList`, `libraryListModeButton`, `libraryGalleryModeButton`,
   `libraryUploadButton`, `emptyLibraryText`. The search row sits above the image
   list, outside the sticky header, and filters displayed manual images by tag.
-- Library scope switch: `manualLibraryScopeButton` and
-  `autoCollectionScopeButton` choose whether the Page shows only the manual
-  upload library or only the auto-collection pending/solidified sections.
+- Library scope switch: `manualLibraryScopeButton`,
+  `autoCollectionScopeButton`, and `externalImportScopeButton` choose whether
+  the Page shows the manual upload library, the auto-collection
+  pending/solidified sections, or the external-import process/library sections.
 - Pending collection panel: `pendingPoolList`, `pendingPoolMeta`,
   `pendingSkipButton`, `pendingSelectAllButton`, `pendingAcceptButton`,
   `pendingDiscardButton`,
@@ -220,9 +259,55 @@ Main sections in `pages/image-center-page/index.html`:
   `solidifiedBackToScopeButton` scrolls back to the manual/auto library scope
   switch. The solidified search row uses the same tag-only local filtering as
   the manual library.
+- External import process panel: `externalImportPendingList`,
+  `externalImportPendingMeta`, `externalImportSelectAllButton`,
+  `externalImportDeletePendingButton`, `externalImportPauseButton`,
+  `externalImportCancelCaptionButton`, `emptyExternalImportPendingText`, and
+  `externalImportMessage`. `externalImportDeletePendingButton` and
+  `externalImportCancelCaptionButton` use a Page warning overlay with local
+  "do not show again" preferences before destructive actions. These preferences
+  are cached in the browser and persisted in `external_import_state.json`.
+  `externalImportPauseButton` is the explicit start button: it shows "请稍候"
+  and stays disabled while external files are still copying, then enables
+  "开始" once pending images are ready; after start it is disabled again and
+  cancellation remains on `externalImportCancelCaptionButton`. Pending external
+  cards use a fixed compact borderless grid
+  (`#externalImportPendingList`) plus `IntersectionObserver` gated lazy image
+  loading, a small browser-side thumbnail request queue, incremental DOM updates
+  by image id, and direct external thumbnail URLs to avoid JSON/base64 payloads
+  during large imports when direct Page image transport is available. If the
+  direct image load fails inside the AstrBot Page container, the same thumbnail
+  queue falls back to the existing bridge-backed `caption_image_data` data URL
+  path and remembers the direct failure for the current Page session. External
+  pending cards show only the thumbnail with a light image border and the
+  caption status text below it. Starting external caption generation reuses the
+  shared provider warning overlay when the current default image caption
+  provider is missing or no longer exists in this AstrBot service.
+- External imported library panel: `externalLibraryList`,
+  `externalListModeButton`, `externalGalleryModeButton`,
+  `externalLibraryTagSearchInput`, `externalLibraryTagSearchClearButton`,
+  `externalLibraryImportButton`, `externalLibraryMeta`, and
+  `emptyExternalLibraryText`. It reuses the same list/gallery image editor, tag
+  save, and delete APIs as the manual and solidified libraries while passing
+  `library_source=external_imported`. `externalLibraryImportButton` opens the
+  same external import dialog as the capabilities-panel import button.
 - Auto-collection dialog: `autoCollectionButton`, `autoCollectionOverlay`,
   save/cancel buttons, and the auto-collection config inputs, including
   `autoCollectionRejectDiscardedInput`.
+- External import dialog: `externalImportOverlay`, `externalImportTree`,
+  `externalImportSelectedPath`, `externalImportStatHint`,
+  `externalImportStatButton`,
+  `externalImportStatProgress`, `externalImportStatText`,
+  `externalImportStartButton`, `externalImportCancelButton`, and close button.
+  The tree is a compact scrollable folder picker. Top-level plugin directories
+  render first and child directories are shown only after the user expands a
+  folder. A yellow stat hint is shown after directory selection. The start
+  button stays disabled until a directory is selected and the explicit stat API
+  returns a positive image count. If an external import is copying files, or if
+  the external-import auto-caption flow is active while pending external images
+  remain, the dialog shows a running-import notice in the yellow stat-hint box
+  and disables both the stat and start buttons until polling observes that the
+  process has completed or the user cancels the active caption run.
 - Meme-combat dialog: `memeCombatOverlay`, save/cancel buttons, the total
   enable switch, `memeCombatFollow*` inputs for join-pattern settings,
   `memeCombatBurst*` inputs for image burst settings, and
@@ -278,14 +363,23 @@ backup package version constant in sync with `PLUGIN_VERSION`:
 - The Page now preserves the current scroll position around library re-renders
   and defers gallery refreshes while the page is actively scrolling, which
   prevents the sticky header from snapping back on iOS browsers.
+- All Page thumbnail renderers use a transparent placeholder plus animated
+  `img.is-loading` spinner until the real thumbnail has fired `load`; failed
+  image loads fall back to the placeholder instead of showing the browser's
+  broken-image icon.
 - Dialogs: open/fill/read/save functions for upload, provider warning, tag
-  categories, proactive reply, meme combat, auto collection, user search, more
-  config, import, and editor.
+  categories, proactive reply, meme combat, auto collection, external import,
+  user search, more config, import, and editor.
+- Provider warning dialog: `providerWarningOverlay` is shared by upload and
+  external-import caption start. It can save the default image caption provider
+  and then continue the blocked action.
 - Data actions: `refreshAll`, `refreshLibrary`, `saveEditor`,
   `saveGlobalTags`, `deleteImage`, `acceptSelectedPendingImages`,
   `discardSelectedPendingImages`, `exportConfig`, `manualExportConfig`,
-  `downloadScheduledBackup`, `deleteScheduledBackup`, `importConfig`,
-  `uploadImages`.
+  `deleteSelectedExternalPendingImages`, `startExternalCaptioning`,
+  `cancelExternalCaptioning`, `statExternalImportDirectory`,
+  `startExternalImport`, `downloadScheduledBackup`, `deleteScheduledBackup`,
+  `importConfig`, `uploadImages`.
   `scrollToLibraryScopeSwitch`, `setLibraryViewMode`, `toggleGallerySelection`,
   `togglePendingSelection`, and `scheduleLibraryRender` keep navigation and
   gallery/list switch state local to the Page session.
@@ -441,6 +535,36 @@ The user search flow is deliberately lightweight:
   correctly. `_discard_pending_collection_images` is the only path that records
   new discarded digests, and it saves discarded history once per batch.
 - `_start_upload_watch_task` / `_watch_uploaded_images`: Background file sync.
+  `_sync_library_if_changed` skips background sync while an external import task
+  is actively copying files; the external worker performs the final full
+  sync/schema refresh after import completion.
+- `_start_external_import`, `_external_import_worker`,
+  `_copy_external_import_image`, and `_external_import_pending_snapshot`: Copy
+  images from selected sibling plugin-data directories into
+  `files/external_import/imported_library/`, dedupe against all known plugin
+  libraries and pending pools by SHA-256 metadata, mark new images `pending`,
+  and expose the untagged import queue to the Page. The import worker copies
+  files outside the plugin-wide lock, saves lightweight index/state batches
+  during long imports, and defers full config/schema synchronization to final
+  completion so Page actions and other AstrBot tasks are not blocked by bulk IO.
+- `_external_import_image_response_path` and `external_import_thumb`: Resolve
+  the direct image response path used by external pending thumbnails. A
+  generated thumbnail cache may be served when present; otherwise the imported
+  source image is streamed directly without JSON/base64 expansion. The Page
+  frontend treats this route as the fast path and falls back through
+  `caption_image_data/<image_id>` via the AstrBot Page bridge when direct image
+  transport cannot be used.
+- `_delete_external_pending_images`: Deletes selected untagged external imports
+  and records their digests in `external_import_state.json` so future incremental
+  imports from other plugin directories skip them, then refreshes caption
+  progress counters. `_pause_external_captioning` and
+  `_resume_external_captioning` persist the external caption pause flag and keep
+  only paused external imports out of the shared caption queue.
+  `_start_external_captioning` guards against starting while the import worker
+  is still running or no valid current default image caption provider is
+  configured, then opens the pause gate and starts the shared caption worker.
+  `_cancel_external_captioning` deletes untagged external imports without adding
+  those digest records.
 - `_caption_pending_images`: Processes pending caption jobs. Its cancellation
   cleanup uses a tracked shielded task so images marked `running` are restored
   to `pending` even if the caption worker is cancelled while waiting on the
@@ -456,6 +580,9 @@ The user search flow is deliberately lightweight:
 - `_migrate_progress_link_config`: Keeps Page link in config.
 - `_refresh_image_tag_schema`: Builds WebUI templates for current images.
 - `_refresh_caption_tag_category_schema`: Updates provider/category options.
+  A saved default image caption provider id is considered configured only when
+  it still exists in the current AstrBot provider list; stale ids from restored
+  backups show the same warning state as an empty provider.
 - `_refresh_proactive_emoji_schema`: Updates proactive provider options.
 - `_refresh_meme_combat_schema`: Updates the battle quick-analysis provider
   options for native WebUI.
@@ -480,6 +607,13 @@ The user search flow is deliberately lightweight:
 - `_restore_backup`, `_restore_backup_images`, `_copy_zip_image_entry_to_temp`,
   `_imported_index_item`: Merge or overwrite image library and index state while
   copying imported images one-by-one from the ZIP through temporary image files.
+  Imported index items preserve explicit waiting states (`pending`/`failed`)
+  even when the backup item already has filename fallback tags, so untagged
+  external-import images remain in the Page import-process panel after backup
+  export/import.
+- `_restore_backup_external_import_state`: Restores external-import digest
+  history and persistent Page state, including the caption pause flag, while
+  clearing any active import process from the imported backup.
 - `_apply_imported_config`: Restores compatible config fields.
 - `_clear_image_library`: Removes current indexed image files for overwrite mode.
 
@@ -500,8 +634,9 @@ The user search flow is deliberately lightweight:
   `_sha256_bytes`: Stable IDs and digests.
 - `_loads_json_object`: Lenient JSON extraction from LLM output.
 - `_cfg_str`, `_cfg_bool`, `_cfg_float`: Runtime config readers.
-- `_stored_image_digests`, `_cached_sha256`, `_all_known_image_digests`:
-  lightweight cross-folder deduplication helpers for auto collection.
+- `_stored_image_digests`, `_stored_image_digests_from_metadata`,
+  `_cached_sha256`, `_all_known_image_digests`: lightweight cross-folder
+  deduplication helpers for auto collection and external imports.
 
 ## AstrBot Behavior References Used
 

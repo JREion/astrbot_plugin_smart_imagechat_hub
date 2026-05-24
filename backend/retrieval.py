@@ -654,14 +654,21 @@ class RetrievalMixin:
         raw = self.config.get(TAG_CATEGORY_CONFIG_KEY, {})
         if not isinstance(raw, dict):
             raw = {}
+        provider_ids = self._available_chat_provider_ids()
         provider_id = str(
             self.config.get(DEFAULT_CAPTION_PROVIDER_CONFIG_KEY) or ""
         ).strip()
+        if provider_id and provider_id not in provider_ids:
+            provider_id = ""
         if not provider_id:
             provider_id = str(
                 raw.get(DEFAULT_CAPTION_PROVIDER_CONFIG_KEY) or ""
             ).strip()
+            if provider_id and provider_id not in provider_ids:
+                provider_id = ""
         system_provider_id = self._system_default_image_caption_provider_id()
+        if system_provider_id and system_provider_id not in provider_ids:
+            system_provider_id = ""
         if not provider_id and system_provider_id:
             provider_id = system_provider_id
         if provider_id:
@@ -680,17 +687,26 @@ class RetrievalMixin:
         self._save_plugin_config()
 
     def _caption_provider_id_for_ui(self) -> str:
+        provider_ids = self._available_chat_provider_ids()
         provider_id = str(
             self.config.get(DEFAULT_CAPTION_PROVIDER_CONFIG_KEY) or ""
         ).strip()
-        if provider_id:
+        if provider_id and provider_id in provider_ids:
             return provider_id
         raw = self.config.get(TAG_CATEGORY_CONFIG_KEY, {})
         if isinstance(raw, dict) and DEFAULT_CAPTION_PROVIDER_CONFIG_KEY in raw:
             provider_id = str(raw.get(DEFAULT_CAPTION_PROVIDER_CONFIG_KEY) or "").strip()
-            if provider_id:
+            if provider_id and provider_id in provider_ids:
                 return provider_id
-        return self._system_default_image_caption_provider_id()
+        provider_id = self._system_default_image_caption_provider_id()
+        return provider_id if provider_id in provider_ids else ""
+
+    def _available_chat_provider_ids(self) -> set[str]:
+        return {
+            str(option.get("id") or "").strip()
+            for option in self._chat_provider_options()
+            if str(option.get("id") or "").strip()
+        }
 
     def _set_plugin_default_image_caption_provider_id(self, provider_id: str) -> None:
         raw = self.config.get(TAG_CATEGORY_CONFIG_KEY, {})

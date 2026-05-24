@@ -8,6 +8,9 @@ from .common import (
     COLLECTED_COLLECTION_FOLDER,
     COLLECTED_LIBRARY_SOURCE,
     DEFAULT_CAPTION_PROVIDER_CONFIG_KEY,
+    EXTERNAL_IMPORT_FOLDER,
+    EXTERNAL_IMPORT_STATE_FILENAME,
+    EXTERNAL_LIBRARY_SOURCE,
     GLOBAL_TAGS_CONFIG_KEY,
     IMAGE_FILES_CONFIG_KEY,
     IMAGE_TAGS_CONFIG_KEY,
@@ -57,6 +60,9 @@ class BackupRestoreMixin:
         discarded_collection_snapshot = self._json_safe_copy(
             self._discarded_collection
         )
+        external_import_snapshot = self._json_safe_copy(
+            self._external_import_state
+        )
         manifest = {
             "plugin": PLUGIN_NAME,
             "version": PLUGIN_VERSION,
@@ -80,6 +86,7 @@ class BackupRestoreMixin:
             "library": library,
             "collection_pool": collection_pool_snapshot,
             "discarded_collection": discarded_collection_snapshot,
+            "external_import_state": external_import_snapshot,
         }
 
     async def _create_persistent_backup(self) -> dict[str, Any]:
@@ -158,6 +165,12 @@ class BackupRestoreMixin:
                     AUTO_COLLECTION_DISCARDED_FILENAME,
                     self._json_dump_bytes(
                         snapshot.get("discarded_collection", {})
+                    ),
+                )
+                zf.writestr(
+                    EXTERNAL_IMPORT_STATE_FILENAME,
+                    self._json_dump_bytes(
+                        snapshot.get("external_import_state", {})
                     ),
                 )
                 written_rel_paths: set[str] = set()
@@ -570,6 +583,11 @@ class BackupRestoreMixin:
                     if AUTO_COLLECTION_DISCARDED_FILENAME in members
                     else {"version": 1, "digests": {}}
                 )
+                external_import_state = (
+                    self._read_json_zip_member(zf, EXTERNAL_IMPORT_STATE_FILENAME)
+                    if EXTERNAL_IMPORT_STATE_FILENAME in members
+                    else self._empty_external_import_state()
+                )
                 if not isinstance(config, dict):
                     raise ValueError("Invalid backup: config.json must be an object")
                 if not isinstance(image_index, dict):
@@ -584,6 +602,15 @@ class BackupRestoreMixin:
                     discarded_collection = {"version": 1, "digests": {}}
                 if not isinstance(discarded_collection.get("digests"), dict):
                     discarded_collection["digests"] = {}
+                if not isinstance(external_import_state, dict):
+                    external_import_state = self._empty_external_import_state()
+                external_import_state.setdefault("version", 1)
+                external_import_state.setdefault("imports", {})
+                external_import_state.setdefault("manually_deleted_digests", {})
+                external_import_state.setdefault("active_import", {})
+                external_import_state.setdefault("last_stat", {})
+                external_import_state.setdefault("caption_paused", True)
+                external_import_state.setdefault("warning_preferences", {})
 
                 pending_prefix = f"files/{PENDING_COLLECTION_FOLDER}/"
                 file_entries = sorted(
@@ -611,6 +638,7 @@ class BackupRestoreMixin:
             "image_index": image_index,
             "collection_pool": collection_pool,
             "discarded_collection": discarded_collection,
+            "external_import_state": external_import_state,
             "file_entries": file_entries,
             "pending_file_entries": pending_file_entries,
             "zip_path": str(zip_path),
@@ -654,9 +682,11 @@ class BackupRestoreMixin:
             backup,
             library_mode,
         )
+        self._restore_backup_external_import_state(backup, library_mode)
         self._save_index()
         self._save_collection_pool()
         self._save_discarded_collection()
+        self._save_external_import_state()
 
         existing_rel_paths = self._all_existing_index_rel_paths()
         self._sync_config_image_files(existing_rel_paths)
@@ -974,6 +1004,60 @@ class BackupRestoreMixin:
         )
         return imported, skipped
 
+    def _restore_backup_external_import_state(
+        self,
+        backup: dict[str, Any],
+        library_mode: str,
+    ) -> None:
+        imported_state = backup.get("external_import_state")
+        if not isinstance(imported_state, dict):
+            return
+        if library_mode == "overwrite":
+            self._external_import_state = self._empty_external_import_state()
+
+        state = self._external_import_state
+        state.setdefault("version", 1)
+        state.setdefault("imports", {})
+        state.setdefault("manually_deleted_digests", {})
+
+        imported_deleted = imported_state.get("manually_deleted_digests", {})
+        if isinstance(imported_deleted, dict):
+            deleted = state.setdefault("manually_deleted_digests", {})
+            if not isinstance(deleted, dict):
+                deleted = {}
+                state["manually_deleted_digests"] = deleted
+            for digest, value in imported_deleted.items():
+                normalized = str(digest or "").strip()
+                if normalized:
+                    deleted[normalized] = self._json_safe_copy(value)
+
+        imported_imports = imported_state.get("imports", {})
+        if isinstance(imported_imports, dict):
+            imports = state.setdefault("imports", {})
+            if not isinstance(imports, dict):
+                imports = {}
+                state["imports"] = imports
+            for key, value in imported_imports.items():
+                if isinstance(value, dict):
+                    imports[str(key)] = self._json_safe_copy(value)
+
+        last_stat = imported_state.get("last_stat", {})
+        state["last_stat"] = (
+            self._json_safe_copy(last_stat) if isinstance(last_stat, dict) else {}
+        )
+        state["caption_paused"] = self._to_bool(
+            imported_state.get("caption_paused"),
+            bool(state.get("caption_paused", True)),
+        )
+        warning_preferences = imported_state.get("warning_preferences")
+        if isinstance(warning_preferences, dict):
+            state["warning_preferences"] = self._json_safe_copy(
+                warning_preferences
+            )
+        else:
+            state.setdefault("warning_preferences", {})
+        state["active_import"] = {}
+
     def _imported_collection_pool_item(
         self,
         raw_item: dict[str, Any],
@@ -1085,7 +1169,9 @@ class BackupRestoreMixin:
         caption_status = str(backup_item.get("caption_status") or "").strip()
         if caption_status == "running":
             caption_status = "pending"
-        if merged_tags:
+        if caption_status in {"pending", "failed"}:
+            pass
+        elif merged_tags:
             caption_status = "done"
         elif caption_status not in {"done", "pending", "failed"}:
             caption_status = "pending"
@@ -1118,6 +1204,12 @@ class BackupRestoreMixin:
             "collected_sender_id": str(backup_item.get("collected_sender_id") or ""),
             "collected_at": self._to_int(backup_item.get("collected_at"), 0),
             "solidified_at": self._to_int(backup_item.get("solidified_at"), 0),
+            "external_source_dir": str(backup_item.get("external_source_dir") or ""),
+            "external_source_path": str(backup_item.get("external_source_path") or ""),
+            "external_imported_at": self._to_int(
+                backup_item.get("external_imported_at"),
+                0,
+            ),
         }
 
     def _apply_imported_config(self, config: dict[str, Any]) -> list[str]:
@@ -1307,6 +1399,7 @@ class BackupRestoreMixin:
         if include_pending_pool:
             folders.append(PENDING_COLLECTION_FOLDER)
         folders.append(COLLECTED_COLLECTION_FOLDER)
+        folders.append(EXTERNAL_IMPORT_FOLDER)
         for folder in folders:
             root = self.data_dir / "files" / folder
             if not root.is_dir():
@@ -1349,15 +1442,18 @@ class BackupRestoreMixin:
     ) -> str:
         if item:
             source = str(item.get("library_source") or "").strip()
-            if source in {MANUAL_LIBRARY_SOURCE, COLLECTED_LIBRARY_SOURCE}:
+            if source in {
+                MANUAL_LIBRARY_SOURCE,
+                COLLECTED_LIBRARY_SOURCE,
+                EXTERNAL_LIBRARY_SOURCE,
+            }:
                 return source
-        return (
-            COLLECTED_LIBRARY_SOURCE
-            if self._norm_rel_path(rel_path).startswith(
-                f"files/{COLLECTED_COLLECTION_FOLDER}/"
-            )
-            else MANUAL_LIBRARY_SOURCE
-        )
+        normalized = self._norm_rel_path(rel_path)
+        if normalized.startswith(f"files/{COLLECTED_COLLECTION_FOLDER}/"):
+            return COLLECTED_LIBRARY_SOURCE
+        if normalized.startswith(f"files/{EXTERNAL_IMPORT_FOLDER}/"):
+            return EXTERNAL_LIBRARY_SOURCE
+        return MANUAL_LIBRARY_SOURCE
 
     def _source_image_count(self, source: str) -> int:
         images = self._index.get("images", {})

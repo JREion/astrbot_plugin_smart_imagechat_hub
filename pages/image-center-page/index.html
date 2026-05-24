@@ -91,6 +91,7 @@
             <button id="proactiveEmojiButton" type="button">对话中主动发送表情包</button>
             <button id="autoCollectionButton" type="button">自动收集群友发的图</button>
             <button id="memeCombatButton" type="button">群聊智能斗图</button>
+            <button id="externalImportButton" type="button">从其他插件导入图库</button>
             <button id="moreConfigButton" type="button" class="warning-button">更多插件配置 ...</button>
           </div>
         </section>
@@ -135,6 +136,14 @@
             aria-pressed="false"
             aria-label="鑷姩鏀堕泦鐨勫浘搴?"
             title="鑷姩鏀堕泦鐨勫浘搴?"
+          ></button>
+          <button
+            id="externalImportScopeButton"
+            type="button"
+            class="scope-toggle-button"
+            aria-pressed="false"
+            aria-label="其他插件的图库"
+            title="其他插件的图库"
           ></button>
         </div>
       </div>
@@ -271,6 +280,80 @@
         <p id="emptySolidifiedLibraryText" class="empty-text">暂无已完成标签生成的固化图像。</p>
       </section>
       </div>
+
+      <div id="externalImportScope" class="is-hidden">
+      <section class="panel pending-collection-panel">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">External Import</p>
+            <h2>导入进程</h2>
+          </div>
+          <div class="pending-header-actions">
+            <span id="externalImportPendingMeta" class="meta-text">0 张</span>
+            <button id="externalImportSelectAllButton" type="button" class="secondary">全选</button>
+            <button id="externalImportDeletePendingButton" type="button" class="danger-button">批量丢弃</button>
+            <button id="externalImportPauseButton" type="button" class="secondary" disabled>开始</button>
+            <button id="externalImportCancelCaptionButton" type="button" class="danger-button">取消导入</button>
+          </div>
+        </div>
+        <div id="externalImportPendingList" class="pending-pool-list"></div>
+        <p id="emptyExternalImportPendingText" class="empty-text">暂无从外部插件导入后等待打标签的图像。</p>
+        <p id="externalImportMessage" class="editor-message"></p>
+      </section>
+
+      <section class="panel library-panel external-library-panel">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">External Library</p>
+            <h2>来自外部插件的图像库与标签管理</h2>
+          </div>
+          <div class="library-header-actions">
+            <span id="externalLibraryMeta" class="meta-text">0 张</span>
+            <div class="library-mode-toggle" role="group" aria-label="外部插件图像库显示模式">
+              <button
+                id="externalListModeButton"
+                type="button"
+                class="library-mode-button"
+                aria-pressed="true"
+                aria-label="列表模式"
+                title="列表模式"
+              ></button>
+              <button
+                id="externalGalleryModeButton"
+                type="button"
+                class="library-mode-button"
+                aria-pressed="false"
+                aria-label="画廊模式"
+                title="画廊模式"
+              ></button>
+            </div>
+            <button id="externalLibraryImportButton" type="button">从外部导入</button>
+          </div>
+        </div>
+
+        <div class="library-search-row">
+          <span class="library-search-icon" aria-hidden="true"></span>
+          <label class="library-search-box" for="externalLibraryTagSearchInput">
+            <input
+              id="externalLibraryTagSearchInput"
+              type="search"
+              autocomplete="off"
+              placeholder="按标签搜索"
+            />
+            <button
+              id="externalLibraryTagSearchClearButton"
+              type="button"
+              class="library-search-clear is-hidden"
+              aria-label="清空外部图库标签搜索"
+              title="清空"
+            ></button>
+          </label>
+        </div>
+        <div id="externalLibraryList" class="library-list"></div>
+        <p id="emptyExternalLibraryText" class="empty-text">暂无已完成标签生成的外部插件图像。</p>
+      </section>
+      </div>
+
     </main>
 
     <div id="editorOverlay" class="editor-overlay is-hidden" role="dialog" aria-modal="true">
@@ -1118,6 +1201,35 @@
       </section>
     </div>
 
+    <div id="externalImportOverlay" class="editor-overlay is-hidden" role="dialog" aria-modal="true">
+      <section class="editor-panel external-import-panel">
+        <div class="editor-header">
+          <div>
+            <p class="eyebrow">External Library Import</p>
+            <h2>选择外部图库目录</h2>
+          </div>
+          <button id="externalImportCloseButton" type="button" class="icon-button" aria-label="关闭">×</button>
+        </div>
+
+        <div id="externalImportStatProgress" class="indeterminate-bar is-hidden">
+          <span></span>
+        </div>
+
+        <div id="externalImportTree" class="external-tree"></div>
+        <p id="externalImportSelectedPath" class="external-selected-path">请选择一个目录。</p>
+        <p id="externalImportStatHint" class="external-import-hint is-hidden">请选择目录后点击“统计图库规模”，统计完成后才能开始导入。</p>
+        <p id="externalImportDialogMessage" class="editor-message"></p>
+
+        <div class="external-import-actions">
+          <button id="externalImportStatButton" type="button" class="primary-action is-hidden">统计图库规模</button>
+          <span id="externalImportStatText" class="meta-text"></span>
+          <span class="action-spacer"></span>
+          <button id="externalImportStartButton" type="button" disabled>开始导入</button>
+          <button id="externalImportCancelButton" type="button" class="secondary">取消</button>
+        </div>
+      </section>
+    </div>
+
     <div id="solidifiedCapacityOverlay" class="editor-overlay is-hidden" role="dialog" aria-modal="true">
       <section class="editor-panel capacity-panel">
         <div class="editor-header">
@@ -1137,6 +1249,32 @@
           <span class="action-spacer"></span>
           <button id="capacityExpandButton" type="button">一键扩容</button>
           <button id="capacityCancelButton" type="button" class="secondary">取消</button>
+        </div>
+      </section>
+    </div>
+
+    <div id="externalImportWarningOverlay" class="editor-overlay is-hidden" role="dialog" aria-modal="true">
+      <section class="editor-panel capacity-panel">
+        <div class="editor-header">
+          <div>
+            <p class="eyebrow">External Import Warning</p>
+            <h2 id="externalImportWarningTitle">操作确认</h2>
+          </div>
+          <button id="externalImportWarningCloseButton" type="button" class="icon-button" aria-label="关闭">×</button>
+        </div>
+
+        <div class="capacity-body">
+          <p id="externalImportWarningText" class="warning-dialog-text"></p>
+          <label class="checkbox-row compact">
+            <input id="externalImportWarningDontShowInput" type="checkbox" />
+            <span>不再提示</span>
+          </label>
+        </div>
+
+        <div class="capacity-actions">
+          <span class="action-spacer"></span>
+          <button id="externalImportWarningConfirmButton" type="button" class="danger-button">确定</button>
+          <button id="externalImportWarningCancelButton" type="button" class="secondary">取消</button>
         </div>
       </section>
     </div>

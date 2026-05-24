@@ -7,6 +7,7 @@ from .common import (
     AstrMessageEvent,
     COLLECTED_COLLECTION_FOLDER,
     COLLECTED_LIBRARY_SOURCE,
+    EXTERNAL_IMPORT_FOLDER,
     IMAGE_FILES_CONFIG_KEY,
     IMAGE_TAGS_CONFIG_KEY,
     Image,
@@ -75,6 +76,7 @@ class AutoCollectionMixin:
         for folder in (
             self._config_file_folder(IMAGE_FILES_CONFIG_KEY),
             COLLECTED_COLLECTION_FOLDER,
+            EXTERNAL_IMPORT_FOLDER,
         ):
             root = self.data_dir / "files" / folder
             if not root.is_dir():

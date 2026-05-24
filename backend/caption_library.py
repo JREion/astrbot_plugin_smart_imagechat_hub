@@ -5,6 +5,7 @@ from .common import (
     COLLECTED_LIBRARY_SOURCE,
     CONFIG_PAGE_PATH,
     DEFAULT_CAPTION_PROVIDER_CONFIG_KEY,
+    EXTERNAL_LIBRARY_SOURCE,
     GLOBAL_TAGS_CONFIG_KEY,
     IMAGE_TAGS_CONFIG_KEY,
     LIBRARY_WATCH_INTERVAL_SECONDS,
@@ -246,6 +247,8 @@ class CaptionLibraryMixin:
                 )
 
     async def _sync_library_if_changed(self, caption_mode: str = "background") -> None:
+        if self._external_import_task and not self._external_import_task.done():
+            return
         signature = self._library_signature()
         task_running = bool(self._caption_task and not self._caption_task.done())
         waiting_without_task = (
@@ -440,6 +443,17 @@ class CaptionLibraryMixin:
                 snapshot["total"] = pending_count
             if not snapshot.get("message"):
                 snapshot["message"] = "Images are waiting for tag generation."
+        elif (
+            self._external_caption_paused()
+            and self._external_pending_count() > 0
+            and snapshot.get("status") in {"idle", "pending", "running", "done"}
+        ):
+            external_pending_count = self._external_pending_count()
+            snapshot["status"] = "pending"
+            snapshot["running"] = False
+            snapshot["remaining"] = external_pending_count
+            snapshot["total"] = external_pending_count
+            snapshot["message"] = "External import tag generation paused."
         else:
             snapshot["running"] = False
         snapshot["pending_images"] = pending_count
@@ -459,6 +473,7 @@ class CaptionLibraryMixin:
         images = self._index.get("images", {})
         manual_items = []
         solidified_items = []
+        external_items = []
         if isinstance(images, dict):
             for item in images.values():
                 if not isinstance(item, dict):
@@ -478,6 +493,8 @@ class CaptionLibraryMixin:
                 source = library_item.get("library_source", MANUAL_LIBRARY_SOURCE)
                 if source == COLLECTED_LIBRARY_SOURCE:
                     solidified_items.append(library_item)
+                elif source == EXTERNAL_LIBRARY_SOURCE:
+                    external_items.append(library_item)
                 else:
                     manual_items.append(library_item)
 
@@ -495,11 +512,16 @@ class CaptionLibraryMixin:
             key=sort_key,
             reverse=True,
         )
-        all_items = manual_items + solidified_items
+        external_items.sort(
+            key=sort_key,
+            reverse=True,
+        )
+        all_items = manual_items + solidified_items + external_items
         return {
             "images": manual_items,
             "manual_images": manual_items,
             "solidified_images": solidified_items,
+            "external_images": external_items,
             "all_images": all_items,
             "global_tags": self._global_tags(),
             "updated_at": int(time.time()),
@@ -509,6 +531,8 @@ class CaptionLibraryMixin:
         snapshot = self._caption_library_snapshot()
         if source == COLLECTED_LIBRARY_SOURCE:
             return snapshot.get("solidified_images", [])
+        if source == EXTERNAL_LIBRARY_SOURCE:
+            return snapshot.get("external_images", [])
         if source == MANUAL_LIBRARY_SOURCE:
             return snapshot.get("manual_images", [])
         return snapshot.get("all_images", [])
@@ -806,10 +830,17 @@ class CaptionLibraryMixin:
         raw = self.config.get(TAG_CATEGORY_CONFIG_KEY, {})
         settings = self._normalize_tag_category_settings(raw)
         provider_id = str(self.config.get(DEFAULT_CAPTION_PROVIDER_CONFIG_KEY) or "").strip()
+        provider_ids = self._available_chat_provider_ids()
+        if provider_id and provider_id not in provider_ids:
+            provider_id = ""
         if not provider_id:
             provider_id = str(settings.get(DEFAULT_CAPTION_PROVIDER_CONFIG_KEY) or "").strip()
+            if provider_id and provider_id not in provider_ids:
+                provider_id = ""
         if not provider_id:
             provider_id = self._system_default_image_caption_provider_id()
+            if provider_id and provider_id not in provider_ids:
+                provider_id = ""
         settings[DEFAULT_CAPTION_PROVIDER_CONFIG_KEY] = provider_id
         return settings
 
@@ -977,6 +1008,8 @@ class CaptionLibraryMixin:
                 continue
             if item.get("caption_status") not in waiting_statuses:
                 continue
+            if self._is_paused_external_caption_item(item):
+                continue
             rel_path = self._norm_rel_path(item.get("rel_path"))
             if rel_path:
                 rel_paths.append(rel_path)
@@ -1043,7 +1076,7 @@ class CaptionLibraryMixin:
                     ]
                     if not rel_paths:
                         break
-                    total = max(total, completed + failed + len(rel_paths))
+                    total = completed + failed + len(rel_paths)
                     rel_path = rel_paths[0]
                     attempted_rel_paths.add(rel_path)
                     images = self._index.get("images", {})
@@ -1140,6 +1173,7 @@ class CaptionLibraryMixin:
                             if path not in attempted_rel_paths
                         ]
                     )
+                    total = completed + failed + remaining
                     status = "running" if remaining else "done"
                     if auto_tags and not generation_failed:
                         message = f"Generated tags for {rel_path}."

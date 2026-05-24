@@ -7,6 +7,7 @@ from .backend import (
     BackupRestoreMixin,
     CaptionLibraryMixin,
     ConfigSchemaMixin,
+    ExternalImportMixin,
     ImageManagementMixin,
     LLMContextMixin,
     MemeCombatMixin,
@@ -24,6 +25,7 @@ from .backend.common import (
     AutoImageCollectionMessageFilter,
     Image,
     MemeCombatMessageFilter,
+    EXTERNAL_IMPORT_STATE_FILENAME,
     PLUGIN_NAME,
     PLUGIN_VERSION,
     Plain,
@@ -49,6 +51,7 @@ class SmartImageSenderPlugin(
     CaptionLibraryMixin,
     BackupRestoreMixin,
     AutoCollectionMixin,
+    ExternalImportMixin,
     ImageManagementMixin,
     MemeCombatMixin,
     RetrievalMixin,
@@ -66,6 +69,7 @@ class SmartImageSenderPlugin(
         self.discarded_collection_path = (
             self.data_dir / AUTO_COLLECTION_DISCARDED_FILENAME
         )
+        self.external_import_state_path = self.data_dir / EXTERNAL_IMPORT_STATE_FILENAME
         self._lock = asyncio.Lock()
         self._caption_task: asyncio.Task | None = None
         self._caption_cleanup_tasks: set[asyncio.Task] = set()
@@ -73,11 +77,13 @@ class SmartImageSenderPlugin(
         self._scheduled_backup_task: asyncio.Task | None = None
         self._auto_collection_queue: asyncio.Queue[dict[str, Any]] | None = None
         self._auto_collection_worker_task: asyncio.Task | None = None
+        self._external_import_task: asyncio.Task | None = None
         self._last_library_signature = ""
         self._image_digest_cache: dict[str, tuple[int, int, str]] = {}
         self._index: dict[str, Any] = self._load_index()
         self._collection_pool: dict[str, Any] = self._load_collection_pool()
         self._discarded_collection: dict[str, Any] = self._load_discarded_collection()
+        self._external_import_state: dict[str, Any] = self._load_external_import_state()
         self._init_meme_combat_state()
         self._caption_progress: dict[str, Any] = self._make_caption_progress(
             status="idle",
@@ -111,6 +117,12 @@ class SmartImageSenderPlugin(
                 await self._auto_collection_worker_task
             except asyncio.CancelledError:
                 pass
+        if self._external_import_task and not self._external_import_task.done():
+            self._external_import_task.cancel()
+            try:
+                await self._external_import_task
+            except asyncio.CancelledError:
+                pass
         await self._wait_meme_combat_tasks()
         if self._scheduled_backup_task and not self._scheduled_backup_task.done():
             self._scheduled_backup_task.cancel()
@@ -134,6 +146,7 @@ class SmartImageSenderPlugin(
         self._save_index()
         self._save_collection_pool()
         self._save_discarded_collection()
+        self._save_external_import_state()
         clear_auto_collection_plugin(self)
 
     @filter.custom_filter(WakeImageRequestFilter, priority=100)

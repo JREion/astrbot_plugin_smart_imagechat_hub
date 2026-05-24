@@ -20,6 +20,7 @@ const els = {
   proactiveEmojiButton: document.getElementById("proactiveEmojiButton"),
   autoCollectionButton: document.getElementById("autoCollectionButton"),
   memeCombatButton: document.getElementById("memeCombatButton"),
+  externalImportButton: document.getElementById("externalImportButton"),
   importButton: document.getElementById("importButton"),
   exportButton: document.getElementById("exportButton"),
   uploadInput: document.getElementById("uploadInput"),
@@ -57,8 +58,12 @@ const els = {
   autoCollectionScopeButton: document.getElementById(
     "autoCollectionScopeButton",
   ),
+  externalImportScopeButton: document.getElementById(
+    "externalImportScopeButton",
+  ),
   manualLibraryScope: document.getElementById("manualLibraryScope"),
   autoCollectionScope: document.getElementById("autoCollectionScope"),
+  externalImportScope: document.getElementById("externalImportScope"),
   libraryScopeSwitchRow: document.getElementById("libraryScopeSwitchRow"),
   libraryMeta: document.getElementById("libraryMeta"),
   libraryListModeButton: document.getElementById("libraryListModeButton"),
@@ -94,6 +99,42 @@ const els = {
   emptySolidifiedLibraryText: document.getElementById(
     "emptySolidifiedLibraryText",
   ),
+  externalImportPendingMeta: document.getElementById(
+    "externalImportPendingMeta",
+  ),
+  externalImportSelectAllButton: document.getElementById(
+    "externalImportSelectAllButton",
+  ),
+  externalImportDeletePendingButton: document.getElementById(
+    "externalImportDeletePendingButton",
+  ),
+  externalImportPauseButton: document.getElementById("externalImportPauseButton"),
+  externalImportCancelCaptionButton: document.getElementById(
+    "externalImportCancelCaptionButton",
+  ),
+  externalImportPendingList: document.getElementById(
+    "externalImportPendingList",
+  ),
+  emptyExternalImportPendingText: document.getElementById(
+    "emptyExternalImportPendingText",
+  ),
+  externalImportMessage: document.getElementById("externalImportMessage"),
+  externalLibraryMeta: document.getElementById("externalLibraryMeta"),
+  externalLibraryImportButton: document.getElementById(
+    "externalLibraryImportButton",
+  ),
+  externalListModeButton: document.getElementById("externalListModeButton"),
+  externalGalleryModeButton: document.getElementById(
+    "externalGalleryModeButton",
+  ),
+  externalLibraryTagSearchInput: document.getElementById(
+    "externalLibraryTagSearchInput",
+  ),
+  externalLibraryTagSearchClearButton: document.getElementById(
+    "externalLibraryTagSearchClearButton",
+  ),
+  externalLibraryList: document.getElementById("externalLibraryList"),
+  emptyExternalLibraryText: document.getElementById("emptyExternalLibraryText"),
   editorOverlay: document.getElementById("editorOverlay"),
   editorTitle: document.getElementById("editorTitle"),
   editorImage: document.getElementById("editorImage"),
@@ -234,6 +275,25 @@ const els = {
   importConfirmButton: document.getElementById("importConfirmButton"),
   importCancelButton: document.getElementById("importCancelButton"),
   importCloseButton: document.getElementById("importCloseButton"),
+  externalImportOverlay: document.getElementById("externalImportOverlay"),
+  externalImportCloseButton: document.getElementById(
+    "externalImportCloseButton",
+  ),
+  externalImportStatProgress: document.getElementById(
+    "externalImportStatProgress",
+  ),
+  externalImportTree: document.getElementById("externalImportTree"),
+  externalImportSelectedPath: document.getElementById(
+    "externalImportSelectedPath",
+  ),
+  externalImportStatHint: document.getElementById("externalImportStatHint"),
+  externalImportDialogMessage: document.getElementById(
+    "externalImportDialogMessage",
+  ),
+  externalImportStatButton: document.getElementById("externalImportStatButton"),
+  externalImportStatText: document.getElementById("externalImportStatText"),
+  externalImportStartButton: document.getElementById("externalImportStartButton"),
+  externalImportCancelButton: document.getElementById("externalImportCancelButton"),
   exportOverlay: document.getElementById("exportOverlay"),
   exportCloseButton: document.getElementById("exportCloseButton"),
   exportProgressBar: document.getElementById("exportProgressBar"),
@@ -248,17 +308,39 @@ const els = {
   capacityExpandButton: document.getElementById("capacityExpandButton"),
   capacityCancelButton: document.getElementById("capacityCancelButton"),
   capacityCancelTopButton: document.getElementById("capacityCancelTopButton"),
+  externalImportWarningOverlay: document.getElementById(
+    "externalImportWarningOverlay",
+  ),
+  externalImportWarningTitle: document.getElementById(
+    "externalImportWarningTitle",
+  ),
+  externalImportWarningText: document.getElementById("externalImportWarningText"),
+  externalImportWarningDontShowInput: document.getElementById(
+    "externalImportWarningDontShowInput",
+  ),
+  externalImportWarningConfirmButton: document.getElementById(
+    "externalImportWarningConfirmButton",
+  ),
+  externalImportWarningCancelButton: document.getElementById(
+    "externalImportWarningCancelButton",
+  ),
+  externalImportWarningCloseButton: document.getElementById(
+    "externalImportWarningCloseButton",
+  ),
 };
 
 const pluginApiBase = "/api/plug/astrbot_plugin_smart_imagechat_hub";
-const PLUGIN_VERSION = "v2.4.8";
+const PLUGIN_VERSION = "v2.5.7";
 let bridge = window.AstrBotPluginPage || null;
 let bridgeReady = false;
 let bridgeUnavailable = false;
 let libraryImages = [];
 let solidifiedLibraryImages = [];
+let externalLibraryImages = [];
 let pendingPoolImages = [];
+let externalImportPendingImages = [];
 let selectedPendingImageIds = new Set();
+let selectedExternalPendingImageIds = new Set();
 let globalTags = [];
 let editingImage = null;
 let globalTagsDirty = false;
@@ -267,23 +349,39 @@ let editorScrollLock = null;
 let uploadedInThisPageSession = false;
 let uploadProviderCheckInProgress = false;
 let warningProviderConfig = null;
+let providerWarningContinueAction = null;
 let libraryViewMode = "list";
 let solidifiedLibraryViewMode = "list";
+let externalLibraryViewMode = "list";
 let libraryScopeMode = "manual";
 let libraryTagSearchText = "";
 let solidifiedLibraryTagSearchText = "";
+let externalLibraryTagSearchText = "";
 let selectedGalleryImageId = "";
 let selectedSolidifiedGalleryImageId = "";
+let selectedExternalGalleryImageId = "";
 let libraryRenderResizeTimer = 0;
 let solidifiedLibraryRenderResizeTimer = 0;
+let externalLibraryRenderResizeTimer = 0;
 let lastLibraryListWidth = 0;
 let lastSolidifiedLibraryListWidth = 0;
+let lastExternalLibraryListWidth = 0;
 let pageScrollIdleTimer = 0;
 let isPageScrolling = false;
 let pendingLibraryRender = new Set();
 let renderedLibrarySignature = "";
 let renderedPendingPoolSignature = "";
+let renderedExternalPendingSignature = "";
+let lastExternalImportRunning = false;
+let lastExternalImportDialogBlocked = false;
+let externalCaptionPaused = false;
+const skippedExternalImportWarnings = new Set();
 let pendingCapacityActionImageIds = [];
+let selectedExternalImportDirectory = "";
+let externalImportDirectoryStat = null;
+let expandedExternalImportDirectories = new Set();
+let currentExternalImportTree = null;
+let pendingExternalImportWarningAction = null;
 let scheduledBackupState = {
   enabled: true,
   backup_time: "06:00",
@@ -296,8 +394,37 @@ let autoCollectionConfigCache = {
   solidified_library_limit: 300,
 };
 const imageUrlCache = new Map();
+const thumbnailLoadQueue = [];
+let activeThumbnailLoads = 0;
+let directThumbnailTransportFailed = false;
+const MAX_ACTIVE_THUMBNAIL_LOADS = 6;
+const TRANSPARENT_IMAGE_SRC =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+const EXTERNAL_IMPORT_DEFAULT_STAT_HINT =
+  "请选择目录后点击“统计图库规模”，统计完成后才能开始导入。";
+const EXTERNAL_IMPORT_BUSY_STAT_HINT =
+  "当前已经有导入进程正在运行，请等待图像全部处理完毕后再继续导入，也可以直接点击“取消导入”按钮取消正在进行的自动标签任务后再执行导入。";
+const imageLoadObserver =
+  "IntersectionObserver" in window
+    ? new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) {
+              continue;
+            }
+            imageLoadObserver.unobserve(entry.target);
+            const loader = entry.target.__smartImageLoader;
+            if (typeof loader === "function") {
+              loader();
+            }
+          }
+        },
+        { rootMargin: "240px 0px" },
+      )
+    : null;
 const MANUAL_LIBRARY_SOURCE = "manual_upload";
 const SOLIDIFIED_LIBRARY_SOURCE = "auto_collected";
+const EXTERNAL_LIBRARY_SOURCE = "external_imported";
 
 const LIBRARY_MODE_ICONS = {
   list:
@@ -319,6 +446,8 @@ const SCOPE_MODE_ICONS = {
     '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.2 2.4c0-.6.6-.9 1.1-.6l8.7 5.3c.6.4.4 1.3-.3 1.4l-3.1.5 1.8 3.1c.2.4.1.9-.3 1.1l-1.1.6c-.4.2-.9.1-1.1-.3L7.1 10.4l-2.4 2.4c-.5.5-1.5.2-1.5-.6V2.4z"/></svg>',
   auto:
     '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="2.2" y="11.2" width="9.6" height="2" rx="1" transform="rotate(-45 2.2 11.2)"/><path d="M10.7 1.8l.7 1.7 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.7z"/><path d="M13.1 8.1l.4 1 .9.4-.9.4-.4 1-.4-1-.9-.4.9-.4.4-1z"/><path d="M4.2 3.2l.4 1 .9.4-.9.4-.4 1-.4-1-.9-.4.9-.4.4-1z"/></svg>',
+  external:
+    '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M2.2 3.4c0-.8.6-1.4 1.4-1.4h3l1.2 1.4h4.6c.8 0 1.4.6 1.4 1.4v.8H2.2V3.4z"/><path d="M2.2 6.2h11.6v5.7c0 .8-.6 1.4-1.4 1.4H3.6c-.8 0-1.4-.6-1.4-1.4V6.2zm6.2 1.1H6.8v1.8H5l3 3 3-3H9.4V7.3z"/></svg>',
 };
 
 const UP_ARROW_ICON =
@@ -329,16 +458,20 @@ const PENDING_SELECTION_ICON =
 
 els.manualLibraryScopeButton.innerHTML = `${SCOPE_MODE_ICONS.manual}<span>手动上传的图库</span>`;
 els.autoCollectionScopeButton.innerHTML = `${SCOPE_MODE_ICONS.auto}<span>自动收集的图库</span>`;
+els.externalImportScopeButton.innerHTML = `${SCOPE_MODE_ICONS.external}<span>其他插件的图库</span>`;
 els.libraryListModeButton.innerHTML = LIBRARY_MODE_ICONS.list;
 els.libraryGalleryModeButton.innerHTML = LIBRARY_MODE_ICONS.gallery;
 els.solidifiedListModeButton.innerHTML = LIBRARY_MODE_ICONS.list;
 els.solidifiedGalleryModeButton.innerHTML = LIBRARY_MODE_ICONS.gallery;
+els.externalListModeButton.innerHTML = LIBRARY_MODE_ICONS.list;
+els.externalGalleryModeButton.innerHTML = LIBRARY_MODE_ICONS.gallery;
 els.solidifiedBackToScopeButton.innerHTML = UP_ARROW_ICON;
 for (const icon of document.querySelectorAll(".library-search-icon")) {
   icon.innerHTML = SEARCH_ICON;
 }
 els.libraryTagSearchClearButton.innerHTML = CLEAR_ICON;
 els.solidifiedLibraryTagSearchClearButton.innerHTML = CLEAR_ICON;
+els.externalLibraryTagSearchClearButton.innerHTML = CLEAR_ICON;
 
 const standbyHintHtml =
   "请点击 [上传新图片] 按钮更新图库，本插件会自动为新图片分配标签。<br>" +
@@ -758,20 +891,18 @@ async function resolveImageUrl(image) {
   if (!imageId) {
     return "";
   }
-  const cacheKey = imageCacheKey(image);
+  const preferDirect =
+    image?.prefer_direct_thumbnail === true && !directThumbnailTransportFailed;
+  const cacheKey = `${preferDirect ? "direct" : "data"}:${imageCacheKey(image)}`;
   if (imageUrlCache.has(cacheKey)) {
     return imageUrlCache.get(cacheKey);
   }
 
-  try {
-    const result = await pluginApiGet(`caption_image_data/${imageId}`);
-    if (result?.data_url) {
-      imageUrlCache.set(cacheKey, result.data_url);
-      return result.data_url;
+  if (!preferDirect) {
+    const dataUrl = await resolveImageDataUrl(image);
+    if (dataUrl) {
+      return dataUrl;
     }
-  } catch (error) {
-    // Fall back to the direct plugin API route when JSON image data cannot be
-    // read, for example on older dashboard builds.
   }
 
   const url = image.thumbnail_url || directImageUrl(imageId);
@@ -779,24 +910,38 @@ async function resolveImageUrl(image) {
   return url;
 }
 
+async function resolveImageDataUrl(image) {
+  const imageId = String(image?.id || "").trim();
+  if (!imageId) {
+    return "";
+  }
+  const cacheKey = `data:${imageCacheKey(image)}`;
+  if (imageUrlCache.has(cacheKey)) {
+    return imageUrlCache.get(cacheKey);
+  }
+  const result = await pluginApiGet(`caption_image_data/${imageId}`);
+  if (result?.data_url) {
+    imageUrlCache.set(cacheKey, result.data_url);
+    return result.data_url;
+  }
+  return "";
+}
+
 async function resolvePendingImageUrl(image) {
   const imageId = String(image?.id || "").trim();
   if (!imageId) {
     return "";
   }
-  const cacheKey = `pending:${imageCacheKey(image)}`;
+  const cacheKey = `pending:${image?.prefer_direct_thumbnail === true ? "direct" : "data"}:${imageCacheKey(image)}`;
   if (imageUrlCache.has(cacheKey)) {
     return imageUrlCache.get(cacheKey);
   }
 
-  try {
-    const result = await pluginApiGet(`collection_pending_image_data/${imageId}`);
-    if (result?.data_url) {
-      imageUrlCache.set(cacheKey, result.data_url);
-      return result.data_url;
+  if (image?.prefer_direct_thumbnail !== true) {
+    const dataUrl = await resolvePendingImageDataUrl(image);
+    if (dataUrl) {
+      return dataUrl;
     }
-  } catch (error) {
-    // Fall back to the direct plugin API route.
   }
 
   const url = image.thumbnail_url || pendingImageUrl(imageId);
@@ -804,46 +949,170 @@ async function resolvePendingImageUrl(image) {
   return url;
 }
 
-function applyResolvedImageUrl(img, image) {
-  img.removeAttribute("src");
+async function resolvePendingImageDataUrl(image) {
+  const imageId = String(image?.id || "").trim();
+  if (!imageId) {
+    return "";
+  }
+  const cacheKey = `pending:data:${imageCacheKey(image)}`;
+  if (imageUrlCache.has(cacheKey)) {
+    return imageUrlCache.get(cacheKey);
+  }
+  const result = await pluginApiGet(`collection_pending_image_data/${imageId}`);
+  if (result?.data_url) {
+    imageUrlCache.set(cacheKey, result.data_url);
+    return result.data_url;
+  }
+  return "";
+}
+
+function setThumbnailLoading(img) {
+  if (typeof img.__smartThumbnailCancel === "function") {
+    img.__smartThumbnailCancel();
+  }
+  img.onload = null;
+  img.onerror = null;
+  img.src = TRANSPARENT_IMAGE_SRC;
   img.classList.add("is-loading");
-  resolveImageUrl(image).then(
-    (url) => {
-      if (!url) {
+}
+
+function isDataImageUrl(url) {
+  return String(url || "").startsWith("data:");
+}
+
+function setThumbnailSource(img, url, fallbackResolver) {
+  if (!url) {
+    return Promise.resolve(false);
+  }
+  return new Promise((resolve) => {
+    let finished = false;
+    let fallbackUsed = false;
+    const cleanup = () => {
+      img.onload = null;
+      img.onerror = null;
+      if (img.__smartThumbnailCancel === cancel) {
+        img.__smartThumbnailCancel = null;
+      }
+    };
+    const finish = (loaded) => {
+      if (finished) {
         return;
       }
-      img.src = url;
-      img.classList.remove("is-loading");
-    },
-    () => {
-      const fallback = image.thumbnail_url || directImageUrl(image.id);
-      if (fallback) {
-        img.src = fallback;
+      finished = true;
+      cleanup();
+      img.classList.toggle("is-loading", !loaded);
+      if (!loaded) {
+        img.src = TRANSPARENT_IMAGE_SRC;
       }
-      img.classList.remove("is-loading");
-    },
-  );
+      resolve(loaded);
+    };
+    const cancel = () => finish(false);
+    img.__smartThumbnailCancel = cancel;
+    img.onload = () => finish(true);
+    img.onerror = () => {
+      if (fallbackUsed || typeof fallbackResolver !== "function") {
+        finish(false);
+        return;
+      }
+      fallbackUsed = true;
+      Promise.resolve()
+        .then(fallbackResolver)
+        .then((fallbackUrl) => {
+          if (fallbackUrl && fallbackUrl !== url) {
+            img.src = fallbackUrl;
+            return;
+          }
+          finish(false);
+        })
+        .catch(() => finish(false));
+    };
+    img.src = url;
+  });
+}
+
+function enqueueThumbnailLoad(load) {
+  if (typeof load !== "function") {
+    return;
+  }
+  thumbnailLoadQueue.push(load);
+  drainThumbnailLoadQueue();
+}
+
+function drainThumbnailLoadQueue() {
+  while (
+    activeThumbnailLoads < MAX_ACTIVE_THUMBNAIL_LOADS &&
+    thumbnailLoadQueue.length
+  ) {
+    const load = thumbnailLoadQueue.shift();
+    activeThumbnailLoads += 1;
+    Promise.resolve()
+      .then(load)
+      .finally(() => {
+        activeThumbnailLoads = Math.max(0, activeThumbnailLoads - 1);
+        drainThumbnailLoadQueue();
+      });
+  }
+}
+
+function applyResolvedImageUrl(img, image) {
+  setThumbnailLoading(img);
+  const load = () => {
+    return resolveImageUrl(image).then(
+      (url) => {
+        return setThumbnailSource(img, url, () => {
+          if (!isDataImageUrl(url)) {
+            if (image?.prefer_direct_thumbnail === true) {
+              directThumbnailTransportFailed = true;
+            }
+            return resolveImageDataUrl(image);
+          }
+          return image.thumbnail_url || directImageUrl(image.id);
+        });
+      },
+      () => {
+        return setThumbnailSource(
+          img,
+          image.thumbnail_url || directImageUrl(image.id),
+          () => resolveImageDataUrl(image),
+        );
+      },
+    );
+  };
+  if (imageLoadObserver) {
+    img.__smartImageLoader = () => enqueueThumbnailLoad(load);
+    imageLoadObserver.observe(img);
+  } else {
+    enqueueThumbnailLoad(load);
+  }
 }
 
 function applyResolvedPendingImageUrl(img, image) {
-  img.removeAttribute("src");
-  img.classList.add("is-loading");
-  resolvePendingImageUrl(image).then(
-    (url) => {
-      if (!url) {
-        return;
-      }
-      img.src = url;
-      img.classList.remove("is-loading");
-    },
-    () => {
-      const fallback = image.thumbnail_url || pendingImageUrl(image.id);
-      if (fallback) {
-        img.src = fallback;
-      }
-      img.classList.remove("is-loading");
-    },
-  );
+  setThumbnailLoading(img);
+  const load = () => {
+    return resolvePendingImageUrl(image).then(
+      (url) => {
+        return setThumbnailSource(img, url, () => {
+          if (!isDataImageUrl(url)) {
+            return resolvePendingImageDataUrl(image);
+          }
+          return image.thumbnail_url || pendingImageUrl(image.id);
+        });
+      },
+      () => {
+        return setThumbnailSource(
+          img,
+          image.thumbnail_url || pendingImageUrl(image.id),
+          () => resolvePendingImageDataUrl(image),
+        );
+      },
+    );
+  };
+  if (imageLoadObserver) {
+    img.__smartImageLoader = () => enqueueThumbnailLoad(load);
+    imageLoadObserver.observe(img);
+  } else {
+    enqueueThumbnailLoad(load);
+  }
 }
 
 function renderProgress(progress) {
@@ -871,18 +1140,31 @@ function renderProgress(progress) {
     els.completeHint.innerHTML = doneHintHtml;
     els.completeHint.classList.toggle("is-hidden", !complete);
   }
+  if (progress?.external_import) {
+    renderExternalImportStatus(progress.external_import);
+  }
 }
 
 function updateLibraryScopeVisibility() {
   const autoMode = libraryScopeMode === "auto";
-  els.manualLibraryScope.classList.toggle("is-hidden", autoMode);
+  const externalMode = libraryScopeMode === "external";
+  els.manualLibraryScope.classList.toggle("is-hidden", autoMode || externalMode);
   els.autoCollectionScope.classList.toggle("is-hidden", !autoMode);
-  els.manualLibraryScopeButton.setAttribute("aria-pressed", String(!autoMode));
+  els.externalImportScope.classList.toggle("is-hidden", !externalMode);
+  els.manualLibraryScopeButton.setAttribute(
+    "aria-pressed",
+    String(!autoMode && !externalMode),
+  );
   els.autoCollectionScopeButton.setAttribute("aria-pressed", String(autoMode));
+  els.externalImportScopeButton.setAttribute(
+    "aria-pressed",
+    String(externalMode),
+  );
 }
 
 function setLibraryScopeMode(mode) {
-  const nextMode = mode === "auto" ? "auto" : "manual";
+  const nextMode =
+    mode === "auto" ? "auto" : mode === "external" ? "external" : "manual";
   if (libraryScopeMode === nextMode) {
     updateLibraryScopeVisibility();
     return;
@@ -920,6 +1202,40 @@ function tagChip(tag) {
 }
 
 function getLibraryState(source = MANUAL_LIBRARY_SOURCE) {
+  if (source === EXTERNAL_LIBRARY_SOURCE) {
+    return {
+      source: EXTERNAL_LIBRARY_SOURCE,
+      images: externalLibraryImages,
+      list: els.externalLibraryList,
+      meta: els.externalLibraryMeta,
+      empty: els.emptyExternalLibraryText,
+      listModeButton: els.externalListModeButton,
+      galleryModeButton: els.externalGalleryModeButton,
+      getViewMode: () => externalLibraryViewMode,
+      setViewModeValue: (mode) => {
+        externalLibraryViewMode = mode;
+      },
+      getSearchText: () => externalLibraryTagSearchText,
+      setSearchText: (text) => {
+        externalLibraryTagSearchText = text;
+      },
+      searchInput: els.externalLibraryTagSearchInput,
+      searchClearButton: els.externalLibraryTagSearchClearButton,
+      searchRow: els.externalLibraryTagSearchInput.closest(".library-search-row"),
+      getSelectedId: () => selectedExternalGalleryImageId,
+      setSelectedId: (imageId) => {
+        selectedExternalGalleryImageId = imageId;
+      },
+      getLastWidth: () => lastExternalLibraryListWidth,
+      setLastWidth: (width) => {
+        lastExternalLibraryListWidth = width;
+      },
+      getResizeTimer: () => externalLibraryRenderResizeTimer,
+      setResizeTimer: (timer) => {
+        externalLibraryRenderResizeTimer = timer;
+      },
+    };
+  }
   if (source === SOLIDIFIED_LIBRARY_SOURCE) {
     return {
       source: SOLIDIFIED_LIBRARY_SOURCE,
@@ -1403,6 +1719,8 @@ function renderLibrary(source = MANUAL_LIBRARY_SOURCE) {
   updateLibrarySearchControls(source);
   if (source === SOLIDIFIED_LIBRARY_SOURCE) {
     renderSolidifiedLibraryCount();
+  } else if (source === EXTERNAL_LIBRARY_SOURCE) {
+    state.meta.textContent = `${state.images.length} 张`;
   } else {
     state.meta.textContent = `${state.images.length} 张`;
   }
@@ -1412,7 +1730,9 @@ function renderLibrary(source = MANUAL_LIBRARY_SOURCE) {
       ? "没有找到含有该标签的图片。"
       : source === SOLIDIFIED_LIBRARY_SOURCE
         ? "暂无已完成标签生成的固化图像。"
-        : "暂无已经生成特征标签的图像。";
+        : source === EXTERNAL_LIBRARY_SOURCE
+          ? "暂无已完成标签生成的外部插件图像。"
+          : "暂无已经生成特征标签的图像。";
   state.empty.classList.toggle("is-hidden", visibleImages.length > 0);
   updateLibraryModeButtons(source);
   state.list.classList.toggle("is-gallery-mode", state.getViewMode() === "gallery");
@@ -1481,10 +1801,22 @@ function pendingPoolSignature(images) {
         String(image?.rel_path || ""),
         String(image?.mtime || ""),
         String(image?.size || ""),
-        String(image?.collected_at || ""),
+        String(image?.collected_at || image?.external_imported_at || ""),
+        String(image?.caption_status || ""),
       ].join("|"),
     )
     .join("\n");
+}
+
+function externalPendingImageSignature(image) {
+  return [
+    String(image?.id || ""),
+    String(image?.rel_path || ""),
+    String(image?.mtime || ""),
+    String(image?.size || ""),
+    String(image?.external_imported_at || ""),
+    String(image?.caption_status || ""),
+  ].join("|");
 }
 
 function applyLibraryState(library, options = {}) {
@@ -1496,6 +1828,9 @@ function applyLibraryState(library, options = {}) {
   const nextSolidifiedImages = Array.isArray(library?.solidified_images)
     ? library.solidified_images
     : [];
+  const nextExternalImages = Array.isArray(library?.external_images)
+    ? library.external_images
+    : [];
   const nextGlobalTags = Array.isArray(library?.global_tags)
     ? library.global_tags
     : [];
@@ -1503,15 +1838,19 @@ function applyLibraryState(library, options = {}) {
     librarySignature(nextImages, nextGlobalTags),
     "::solidified::",
     librarySignature(nextSolidifiedImages, nextGlobalTags),
+    "::external::",
+    librarySignature(nextExternalImages, nextGlobalTags),
   ].join("\n");
   const force = options.force === true;
   const changed = force || nextSignature !== renderedLibrarySignature;
 
   libraryImages = nextImages;
   solidifiedLibraryImages = nextSolidifiedImages;
+  externalLibraryImages = nextExternalImages;
   globalTags = nextGlobalTags;
   syncSelectedGalleryImage(MANUAL_LIBRARY_SOURCE);
   syncSelectedGalleryImage(SOLIDIFIED_LIBRARY_SOURCE);
+  syncSelectedGalleryImage(EXTERNAL_LIBRARY_SOURCE);
 
   if (!changed) {
     return false;
@@ -1522,9 +1861,11 @@ function applyLibraryState(library, options = {}) {
   if (isPageScrolling) {
     deferLibraryRenderUntilScrollIdle(MANUAL_LIBRARY_SOURCE);
     deferLibraryRenderUntilScrollIdle(SOLIDIFIED_LIBRARY_SOURCE);
+    deferLibraryRenderUntilScrollIdle(EXTERNAL_LIBRARY_SOURCE);
   } else {
     renderLibraryPreservingScroll(MANUAL_LIBRARY_SOURCE);
     renderLibraryPreservingScroll(SOLIDIFIED_LIBRARY_SOURCE);
+    renderLibraryPreservingScroll(EXTERNAL_LIBRARY_SOURCE);
   }
   return true;
 }
@@ -1560,6 +1901,33 @@ function applyPendingPoolState(pool, options = {}) {
   return true;
 }
 
+function applyExternalPendingState(pending, options = {}) {
+  const nextImages = Array.isArray(pending?.images) ? pending.images : [];
+  applyExternalImportWarningPreferences(pending?.warning_preferences);
+  const nextSignature = pendingPoolSignature(nextImages);
+  const force = options.force === true;
+  const changed = force || nextSignature !== renderedExternalPendingSignature;
+
+  externalImportPendingImages = nextImages;
+  const existingIds = new Set(nextImages.map((image) => String(image?.id || "")));
+  selectedExternalPendingImageIds = new Set(
+    Array.from(selectedExternalPendingImageIds).filter((imageId) =>
+      existingIds.has(imageId),
+    ),
+  );
+
+  if (!changed) {
+    syncExternalPendingSelectionView();
+    return false;
+  }
+
+  renderedExternalPendingSignature = nextSignature;
+  const position = captureScrollPosition();
+  renderExternalPendingPool({ force });
+  restoreScrollPosition(position);
+  return true;
+}
+
 function syncPendingSelectionView() {
   const cards = Array.from(els.pendingPoolList.querySelectorAll(".pending-card"));
   for (const card of cards) {
@@ -1591,6 +1959,62 @@ function togglePendingSelection(imageId) {
     selectedPendingImageIds.add(normalizedId);
   }
   syncPendingSelectionView();
+}
+
+function syncExternalPendingSelectionView() {
+  const cards = Array.from(
+    els.externalImportPendingList.querySelectorAll(".pending-card"),
+  );
+  for (const card of cards) {
+    const imageId = String(card.dataset.pendingImageId || "").trim();
+    const selected = selectedExternalPendingImageIds.has(imageId);
+    card.classList.toggle("is-selected", selected);
+    const checkbox = card.querySelector("input[type='checkbox']");
+    if (checkbox) {
+      checkbox.checked = selected;
+    }
+  }
+  const selectedCount = selectedExternalPendingImageIds.size;
+  els.externalImportDeletePendingButton.disabled = selectedCount === 0;
+  els.externalImportCancelCaptionButton.disabled =
+    externalImportPendingImages.length === 0;
+  if (!externalImportPendingImages.length || lastExternalImportRunning) {
+    els.externalImportPauseButton.disabled = true;
+  }
+  els.externalImportSelectAllButton.textContent =
+    externalImportPendingImages.length &&
+    selectedCount === externalImportPendingImages.length
+      ? "取消全选"
+      : "全选";
+}
+
+function toggleExternalPendingSelection(imageId) {
+  const normalizedId = String(imageId || "").trim();
+  if (!normalizedId) {
+    return;
+  }
+  if (selectedExternalPendingImageIds.has(normalizedId)) {
+    selectedExternalPendingImageIds.delete(normalizedId);
+  } else {
+    selectedExternalPendingImageIds.add(normalizedId);
+  }
+  syncExternalPendingSelectionView();
+}
+
+function toggleAllExternalPendingSelection() {
+  if (!externalImportPendingImages.length) {
+    return;
+  }
+  if (selectedExternalPendingImageIds.size === externalImportPendingImages.length) {
+    selectedExternalPendingImageIds.clear();
+  } else {
+    selectedExternalPendingImageIds = new Set(
+      externalImportPendingImages
+        .map((image) => String(image?.id || ""))
+        .filter(Boolean),
+    );
+  }
+  syncExternalPendingSelectionView();
 }
 
 function scrollToSolidifiedLibrary() {
@@ -1668,6 +2092,397 @@ function renderPendingPool() {
   syncPendingSelectionView();
 }
 
+function renderExternalPendingPool(options = {}) {
+  if (options.force === true) {
+    els.externalImportPendingList.replaceChildren();
+  }
+  const currentCards = new Map();
+  for (const card of els.externalImportPendingList.querySelectorAll(".pending-card")) {
+    const imageId = String(card.dataset.pendingImageId || "").trim();
+    if (imageId) {
+      currentCards.set(imageId, card);
+    }
+  }
+  const nextIds = new Set();
+  const renderedCards = new Set();
+  const fragment = document.createDocumentFragment();
+  els.externalImportPendingMeta.textContent = `${externalImportPendingImages.length} 张`;
+  els.emptyExternalImportPendingText.classList.toggle(
+    "is-hidden",
+    externalImportPendingImages.length > 0,
+  );
+
+  for (const image of externalImportPendingImages) {
+    const imageId = String(image?.id || "").trim();
+    if (!imageId) {
+      continue;
+    }
+    nextIds.add(imageId);
+    const nextSignature = externalPendingImageSignature(image);
+    const existingCard = currentCards.get(imageId);
+    if (existingCard?.dataset.pendingSignature === nextSignature) {
+      renderedCards.add(existingCard);
+      fragment.appendChild(existingCard);
+      continue;
+    }
+    const oldThumb = existingCard?.querySelector("img");
+    if (oldThumb && imageLoadObserver) {
+      imageLoadObserver.unobserve(oldThumb);
+    }
+    const card = document.createElement("label");
+    card.className = "pending-card";
+    card.dataset.pendingImageId = imageId;
+    card.dataset.pendingSignature = nextSignature;
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = selectedExternalPendingImageIds.has(imageId);
+    checkbox.addEventListener("change", (event) => {
+      event.stopPropagation();
+      toggleExternalPendingSelection(imageId);
+    });
+
+    const thumb = document.createElement("img");
+    thumb.className = "pending-thumb";
+    thumb.alt = image.filename || image.rel_path || "待打标签图像";
+    thumb.loading = "lazy";
+    thumb.decoding = "async";
+    applyResolvedImageUrl(thumb, image);
+
+    const selectedOverlay = document.createElement("span");
+    selectedOverlay.className = "pending-selected-overlay";
+    selectedOverlay.innerHTML = PENDING_SELECTION_ICON;
+    selectedOverlay.setAttribute("aria-hidden", "true");
+
+    const thumbWrap = document.createElement("div");
+    thumbWrap.className = "pending-thumb-wrap";
+    thumbWrap.append(thumb, selectedOverlay);
+
+    const meta = document.createElement("div");
+    meta.className = "pending-card-meta";
+    const status = document.createElement("div");
+    status.className = "pending-card-details";
+    status.textContent = image.caption_status || "pending";
+    meta.append(status);
+
+    card.append(checkbox, thumbWrap, meta);
+    card.addEventListener("click", (event) => {
+      if (event.target !== checkbox) {
+        event.preventDefault();
+        toggleExternalPendingSelection(imageId);
+      }
+    });
+    renderedCards.add(card);
+    fragment.appendChild(card);
+  }
+  for (const [imageId, card] of currentCards.entries()) {
+    if (nextIds.has(imageId) || renderedCards.has(card)) {
+      continue;
+    }
+    const thumb = card.querySelector("img");
+    if (thumb && imageLoadObserver) {
+      imageLoadObserver.unobserve(thumb);
+    }
+  }
+  els.externalImportPendingList.replaceChildren(fragment);
+
+  syncExternalPendingSelectionView();
+}
+
+function externalImportDialogBlockState(status) {
+  const active = status?.active_import || {};
+  const importRunning = String(active?.status || "") === "running";
+  const pendingCount = asInt(status?.pending_count ?? active?.pending_count);
+  const captionActive =
+    Boolean(status?.caption_active) ||
+    (!Boolean(status?.caption_paused) && pendingCount > 0);
+  return {
+    blocked: importRunning || captionActive,
+    importRunning,
+    captionActive,
+    pendingCount,
+  };
+}
+
+function setExternalImportStatHint(text, visible) {
+  els.externalImportStatHint.textContent =
+    text || EXTERNAL_IMPORT_DEFAULT_STAT_HINT;
+  els.externalImportStatHint.classList.toggle("is-hidden", !visible);
+}
+
+function renderExternalImportStatus(status) {
+  const active = status?.active_import || {};
+  const stat = status?.last_stat || externalImportDirectoryStat;
+  externalCaptionPaused = Boolean(status?.caption_paused);
+  const isImportRunning = String(active?.status || "") === "running";
+  const pendingCount = asInt(status?.pending_count);
+  const dialogBlockState = externalImportDialogBlockState(status);
+  lastExternalImportRunning = isImportRunning;
+  lastExternalImportDialogBlocked = dialogBlockState.blocked;
+  const canStartCaptioning =
+    externalCaptionPaused && !isImportRunning && pendingCount > 0;
+  els.externalImportPauseButton.textContent = isImportRunning ? "请稍候" : "开始";
+  els.externalImportPauseButton.disabled = !canStartCaptioning;
+  els.externalImportPauseButton.classList.toggle(
+    "primary-action",
+    canStartCaptioning,
+  );
+  els.externalImportPauseButton.classList.toggle(
+    "secondary",
+    !canStartCaptioning,
+  );
+  if (active?.status === "running") {
+    els.externalImportMessage.textContent =
+      `正在导入：已扫描 ${asInt(active.scanned)} 张，复制 ${asInt(active.copied)} 张，` +
+      `跳过重复 ${asInt(active.skipped_duplicates)} 张。`;
+    return;
+  }
+  if (active?.status === "done") {
+    els.externalImportMessage.textContent =
+      `最近一次导入完成：复制 ${asInt(active.copied)} 张，跳过重复 ${asInt(active.skipped_duplicates)} 张。`;
+    return;
+  }
+  if (active?.status === "failed") {
+    els.externalImportMessage.textContent = `最近一次导入失败：${active.message || "-"}`;
+    return;
+  }
+  if (active?.status === "stopped") {
+    els.externalImportMessage.textContent =
+      `最近一次导入已停止：已扫描 ${asInt(active.scanned)} 张，复制 ${asInt(active.copied)} 张。`;
+    return;
+  }
+  if (externalCaptionPaused && pendingCount > 0) {
+    els.externalImportMessage.textContent =
+      "导入完成后，可点击“开始”生成标签。";
+    return;
+  }
+  if (stat?.count) {
+    els.externalImportMessage.textContent = `最近统计目录包含 ${asInt(stat.count)} 张图片。`;
+  }
+}
+
+function selectedExternalPendingIds() {
+  return Array.from(selectedExternalPendingImageIds).filter(Boolean);
+}
+
+const EXTERNAL_IMPORT_WARNING_STORAGE_KEYS = {
+  delete_pending: "smart_image_external_import_skip_delete_warning",
+  cancel_caption: "smart_image_external_import_skip_cancel_warning",
+};
+
+function shouldSkipExternalImportWarning(action) {
+  const normalizedAction = String(action || "").trim();
+  if (skippedExternalImportWarnings.has(normalizedAction)) {
+    return true;
+  }
+  try {
+    return localStorage.getItem(EXTERNAL_IMPORT_WARNING_STORAGE_KEYS[normalizedAction]) === "1";
+  } catch (error) {
+    return false;
+  }
+}
+
+function rememberExternalImportWarning(action) {
+  const normalizedAction = String(action || "").trim();
+  if (!EXTERNAL_IMPORT_WARNING_STORAGE_KEYS[normalizedAction]) {
+    return;
+  }
+  skippedExternalImportWarnings.add(normalizedAction);
+  try {
+    localStorage.setItem(EXTERNAL_IMPORT_WARNING_STORAGE_KEYS[normalizedAction], "1");
+  } catch (error) {
+    // Ignore private-mode or quota failures; the warning will simply show again.
+  }
+  pluginApiPost("external_import_warning_preference", {
+    action: normalizedAction,
+    skip: true,
+  }).catch(() => {});
+}
+
+function applyExternalImportWarningPreferences(preferences) {
+  if (!preferences || typeof preferences !== "object") {
+    return;
+  }
+  for (const action of Object.keys(EXTERNAL_IMPORT_WARNING_STORAGE_KEYS)) {
+    if (!preferences[action]) {
+      continue;
+    }
+    skippedExternalImportWarnings.add(action);
+    try {
+      localStorage.setItem(EXTERNAL_IMPORT_WARNING_STORAGE_KEYS[action], "1");
+    } catch (error) {
+      // Persisted server-side preference is still enough for this page session.
+    }
+  }
+}
+
+function externalImportWarningContent(action) {
+  if (action === "delete_pending") {
+    return {
+      title: "确认删除待打标签图像",
+      text: "手动删除的图片会被记录，未来再次同步外部图库时不会再次进入本插件。",
+      confirmText: "确认删除",
+    };
+  }
+  return {
+    title: "确认取消自动标签进程",
+    text: "取消后会释放所有未打标签图像；以后需要重新走导入流程，但插件会自动去重。",
+    confirmText: "确认取消",
+  };
+}
+
+function openExternalImportWarning(action) {
+  const content = externalImportWarningContent(action);
+  pendingExternalImportWarningAction = action;
+  els.externalImportWarningTitle.textContent = content.title;
+  els.externalImportWarningText.textContent = content.text;
+  els.externalImportWarningConfirmButton.textContent = content.confirmText;
+  els.externalImportWarningDontShowInput.checked = false;
+  els.externalImportWarningOverlay.classList.remove("is-hidden");
+}
+
+function closeExternalImportWarning() {
+  pendingExternalImportWarningAction = null;
+  els.externalImportWarningOverlay.classList.add("is-hidden");
+}
+
+async function confirmExternalImportWarning() {
+  const action = pendingExternalImportWarningAction;
+  if (!action) {
+    closeExternalImportWarning();
+    return;
+  }
+  if (els.externalImportWarningDontShowInput.checked) {
+    rememberExternalImportWarning(action);
+  }
+  closeExternalImportWarning();
+  if (action === "delete_pending") {
+    await deleteSelectedExternalPendingImages({ confirmed: true });
+  } else if (action === "cancel_caption") {
+    await cancelExternalCaptioning({ confirmed: true });
+  }
+}
+
+async function deleteSelectedExternalPendingImages(options = {}) {
+  const imageIds = selectedExternalPendingIds();
+  if (!imageIds.length) {
+    return;
+  }
+  if (options.confirmed !== true && !shouldSkipExternalImportWarning("delete_pending")) {
+    openExternalImportWarning("delete_pending");
+    return;
+  }
+  els.externalImportDeletePendingButton.disabled = true;
+  els.externalImportMessage.textContent = "正在删除选中的待打标签图像...";
+  try {
+    const result = await pluginApiPost("external_import_delete_pending", {
+      image_ids: imageIds,
+    });
+    selectedExternalPendingImageIds.clear();
+    if (result?.pending) {
+      applyExternalPendingState(result.pending, { force: true });
+    } else {
+      await refreshExternalImportPending();
+    }
+    if (result?.library) {
+      applyLibraryState(result.library, { force: true });
+    }
+    if (result?.progress) {
+      renderProgress(result.progress);
+    }
+    const deleted = asInt(result?.result?.deleted?.length);
+    const skipped = asInt(result?.result?.skipped?.length);
+    els.externalImportMessage.textContent = `已删除 ${deleted} 张，跳过 ${skipped} 张。`;
+  } catch (error) {
+    els.externalImportMessage.textContent = `删除失败：${error.message || error}`;
+  } finally {
+    syncExternalPendingSelectionView();
+  }
+}
+
+async function startExternalCaptioning() {
+  if (
+    !externalCaptionPaused ||
+    !externalImportPendingImages.length ||
+    lastExternalImportRunning
+  ) {
+    syncExternalPendingSelectionView();
+    return;
+  }
+  const providerReady = await ensureCaptionProviderConfigured(
+    startExternalCaptioningAfterProviderCheck,
+  );
+  if (!providerReady) {
+    return;
+  }
+  await startExternalCaptioningAfterProviderCheck();
+}
+
+async function startExternalCaptioningAfterProviderCheck() {
+  if (
+    !externalCaptionPaused ||
+    !externalImportPendingImages.length ||
+    lastExternalImportRunning
+  ) {
+    syncExternalPendingSelectionView();
+    return;
+  }
+  els.externalImportPauseButton.disabled = true;
+  els.externalImportMessage.textContent = "正在开始自动标签进程...";
+  try {
+    const result = await pluginApiPost("external_import_start_caption", {});
+    if (result?.pending) {
+      applyExternalPendingState(result.pending, { force: true });
+      renderExternalImportStatus(result.pending.status || {});
+    }
+    if (result?.progress) {
+      renderProgress(result.progress);
+    }
+    els.externalImportMessage.textContent = "自动标签进程已开始。";
+  } catch (error) {
+    els.externalImportMessage.textContent = `开始失败：${error.message || error}`;
+  } finally {
+    syncExternalPendingSelectionView();
+    try {
+      await refreshExternalImportPending();
+    } catch (refreshError) {
+      // Keep the original start error visible if the status refresh also fails.
+    }
+  }
+}
+
+async function cancelExternalCaptioning(options = {}) {
+  if (!externalImportPendingImages.length) {
+    syncExternalPendingSelectionView();
+    return;
+  }
+  if (options.confirmed !== true && !shouldSkipExternalImportWarning("cancel_caption")) {
+    openExternalImportWarning("cancel_caption");
+    return;
+  }
+  els.externalImportCancelCaptionButton.disabled = true;
+  els.externalImportMessage.textContent = "正在取消自动标签进程...";
+  try {
+    const result = await pluginApiPost("external_import_cancel_caption", {});
+    selectedExternalPendingImageIds.clear();
+    if (result?.pending) {
+      applyExternalPendingState(result.pending, { force: true });
+    }
+    if (result?.library) {
+      applyLibraryState(result.library, { force: true });
+    }
+    if (result?.progress) {
+      renderProgress(result.progress);
+    }
+    const removed = asInt(result?.result?.deleted?.length);
+    els.externalImportMessage.textContent = `已取消，释放 ${removed} 张未打标签图像。`;
+  } catch (error) {
+    els.externalImportMessage.textContent = `取消失败：${error.message || error}`;
+  } finally {
+    syncExternalPendingSelectionView();
+  }
+}
+
 async function refreshLibrary() {
   const library = await pluginApiGet("caption_library");
   applyLibraryState(library);
@@ -1678,12 +2493,32 @@ async function refreshPendingPool() {
   applyPendingPoolState(pool);
 }
 
+async function refreshExternalImportPending() {
+  const pending = await pluginApiGet("external_import_pending");
+  applyExternalPendingState(pending);
+  renderExternalImportStatus(pending?.status || {});
+  return pending;
+}
+
 async function refreshAll() {
   try {
     const progress = await pluginApiGet("caption_progress");
     renderProgress(progress || {});
     await refreshLibrary();
     await refreshPendingPool();
+    const externalStatus = progress?.external_import || {};
+    const externalBlockState = externalImportDialogBlockState(externalStatus);
+    let latestExternalStatus = externalStatus;
+    if (libraryScopeMode === "external" || externalBlockState.blocked) {
+      const pending = await refreshExternalImportPending();
+      latestExternalStatus = pending?.status || latestExternalStatus;
+    }
+    if (
+      els.externalImportOverlay &&
+      !els.externalImportOverlay.classList.contains("is-hidden")
+    ) {
+      applyExternalImportDialogRunningState(latestExternalStatus);
+    }
   } catch (error) {
     setStatus("failed");
     setMessage(`读取进度失败：${error.message || error}`);
@@ -1719,6 +2554,235 @@ function openImportDialog() {
 function closeImportDialog() {
   els.importOverlay.classList.add("is-hidden");
   els.importMessage.textContent = "";
+}
+
+function renderExternalImportTreeNode(node) {
+  const item = document.createElement("div");
+  item.className = "external-tree-item";
+  const relPath = String(node?.rel_path || "").trim();
+  const children = Array.isArray(node?.children) ? node.children : [];
+  const expanded = expandedExternalImportDirectories.has(relPath);
+
+  const row = document.createElement("div");
+  row.className = "external-tree-row";
+
+  const toggleButton = document.createElement("button");
+  toggleButton.type = "button";
+  toggleButton.className = "external-tree-toggle";
+  toggleButton.textContent = children.length ? (expanded ? "▾" : "▸") : "";
+  toggleButton.disabled = !children.length;
+  toggleButton.setAttribute("aria-label", expanded ? "折叠目录" : "展开目录");
+  toggleButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (!children.length) {
+      return;
+    }
+    if (expandedExternalImportDirectories.has(relPath)) {
+      expandedExternalImportDirectories.delete(relPath);
+    } else {
+      expandedExternalImportDirectories.add(relPath);
+    }
+    renderExternalImportTree(currentExternalImportTree);
+  });
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "external-tree-button";
+  button.dataset.path = relPath;
+  button.disabled = !relPath;
+  button.addEventListener("click", () => selectExternalImportDirectory(node));
+
+  const icon = document.createElement("span");
+  icon.className = "external-tree-folder";
+  icon.setAttribute("aria-hidden", "true");
+
+  const label = document.createElement("span");
+  label.className = "external-tree-label";
+  label.textContent = node?.name || relPath || "/";
+  button.append(icon, label);
+  row.append(toggleButton, button);
+  item.appendChild(row);
+
+  if (children.length && expanded) {
+    const childWrap = document.createElement("div");
+    childWrap.className = "external-tree-children";
+    for (const child of children) {
+      childWrap.appendChild(renderExternalImportTreeNode(child));
+    }
+    item.appendChild(childWrap);
+  }
+  return item;
+}
+
+function renderExternalImportTree(tree) {
+  currentExternalImportTree = tree || null;
+  if (tree?.rel_path !== undefined && !expandedExternalImportDirectories.has("")) {
+    expandedExternalImportDirectories.add("");
+  }
+  els.externalImportTree.replaceChildren();
+  const children = Array.isArray(tree?.children) ? tree.children : [];
+  if (!children.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-text inline";
+    empty.textContent = "未找到可导入的其他插件数据目录。";
+    els.externalImportTree.appendChild(empty);
+    return;
+  }
+  for (const child of children) {
+    els.externalImportTree.appendChild(renderExternalImportTreeNode(child));
+  }
+}
+
+function selectExternalImportDirectory(node) {
+  if (lastExternalImportDialogBlocked) {
+    setExternalImportStatHint(EXTERNAL_IMPORT_BUSY_STAT_HINT, true);
+    els.externalImportDialogMessage.textContent = "";
+    els.externalImportStatButton.disabled = true;
+    els.externalImportStartButton.disabled = true;
+    return;
+  }
+  selectedExternalImportDirectory = String(node?.rel_path || "").trim();
+  externalImportDirectoryStat = null;
+  els.externalImportSelectedPath.textContent = selectedExternalImportDirectory
+    ? `已选择：${selectedExternalImportDirectory}`
+    : "请选择一个目录。";
+  els.externalImportStatButton.classList.toggle(
+    "is-hidden",
+    !selectedExternalImportDirectory,
+  );
+  els.externalImportStatText.textContent = "";
+  els.externalImportStartButton.disabled = true;
+  setExternalImportStatHint(
+    EXTERNAL_IMPORT_DEFAULT_STAT_HINT,
+    Boolean(selectedExternalImportDirectory),
+  );
+
+  for (const button of els.externalImportTree.querySelectorAll(
+    ".external-tree-button",
+  )) {
+    button.classList.toggle(
+      "is-selected",
+      String(button.dataset.path || "") === selectedExternalImportDirectory,
+    );
+  }
+}
+
+function applyExternalImportDialogRunningState(status) {
+  const blockState =
+    typeof status === "boolean"
+      ? {
+          blocked: Boolean(status),
+          importRunning: Boolean(status),
+          captionActive: false,
+        }
+      : externalImportDialogBlockState(status || {});
+  lastExternalImportRunning = blockState.importRunning;
+  lastExternalImportDialogBlocked = blockState.blocked;
+  if (!lastExternalImportDialogBlocked) {
+    els.externalImportStatButton.classList.toggle(
+      "is-hidden",
+      !selectedExternalImportDirectory,
+    );
+    els.externalImportStatButton.disabled = !selectedExternalImportDirectory;
+    els.externalImportStartButton.disabled =
+      !selectedExternalImportDirectory ||
+      asInt(externalImportDirectoryStat?.count) <= 0;
+    setExternalImportStatHint(
+      EXTERNAL_IMPORT_DEFAULT_STAT_HINT,
+      Boolean(selectedExternalImportDirectory),
+    );
+    return;
+  }
+  els.externalImportStatButton.classList.remove("is-hidden");
+  els.externalImportStatButton.disabled = true;
+  els.externalImportStartButton.disabled = true;
+  setExternalImportStatHint(EXTERNAL_IMPORT_BUSY_STAT_HINT, true);
+  els.externalImportDialogMessage.textContent = "";
+}
+
+async function openExternalImportDialog() {
+  selectedExternalImportDirectory = "";
+  externalImportDirectoryStat = null;
+  els.externalImportStatHint.classList.add("is-hidden");
+  els.externalImportDialogMessage.textContent = "正在读取目录树...";
+  els.externalImportSelectedPath.textContent = "请选择一个目录。";
+  els.externalImportStatText.textContent = "";
+  els.externalImportStartButton.disabled = true;
+  els.externalImportStatButton.classList.add("is-hidden");
+  els.externalImportStatProgress.classList.add("is-hidden");
+  els.externalImportOverlay.classList.remove("is-hidden");
+  try {
+    const status = await pluginApiGet("external_import_status");
+    applyExternalImportDialogRunningState(status);
+    renderExternalImportTree(await pluginApiGet("external_import_tree"));
+    if (!lastExternalImportDialogBlocked) {
+      els.externalImportDialogMessage.textContent = "";
+    }
+  } catch (error) {
+    els.externalImportDialogMessage.textContent =
+      `读取外部目录失败：${error.message || error}`;
+  }
+}
+
+function closeExternalImportDialog() {
+  els.externalImportOverlay.classList.add("is-hidden");
+  els.externalImportDialogMessage.textContent = "";
+}
+
+async function statExternalImportDirectory() {
+  if (!selectedExternalImportDirectory || lastExternalImportDialogBlocked) {
+    return;
+  }
+  els.externalImportStatButton.disabled = true;
+  els.externalImportStartButton.disabled = true;
+  els.externalImportStatProgress.classList.remove("is-hidden");
+  els.externalImportDialogMessage.textContent = "正在统计目录中的图片...";
+  try {
+    externalImportDirectoryStat = await pluginApiPost("external_import_stat", {
+      directory: selectedExternalImportDirectory,
+    });
+    const count = asInt(externalImportDirectoryStat?.count);
+    els.externalImportStatHint.classList.add("is-hidden");
+    els.externalImportStatText.textContent = `共计 ${count} 张图片`;
+    els.externalImportStartButton.disabled = count <= 0;
+    els.externalImportDialogMessage.textContent =
+      count > 0 ? "统计完成，可以开始导入。" : "该目录中没有可导入的图片。";
+  } catch (error) {
+    els.externalImportDialogMessage.textContent =
+      `统计失败：${error.message || error}`;
+  } finally {
+    els.externalImportStatButton.disabled = lastExternalImportDialogBlocked;
+    els.externalImportStatProgress.classList.add("is-hidden");
+  }
+}
+
+async function startExternalImport() {
+  if (!selectedExternalImportDirectory || lastExternalImportDialogBlocked) {
+    return;
+  }
+  els.externalImportStartButton.disabled = true;
+  els.externalImportCancelButton.disabled = true;
+  els.externalImportDialogMessage.textContent = "正在启动导入...";
+  try {
+    await pluginApiPost("external_import_start", {
+      directory: selectedExternalImportDirectory,
+    });
+    closeExternalImportDialog();
+    setLibraryScopeMode("external");
+    els.externalImportMessage.textContent = "导入已开始，页面会自动刷新进度。";
+    await refreshAll();
+  } catch (error) {
+    els.externalImportDialogMessage.textContent =
+      `启动导入失败：${error.message || error}`;
+  } finally {
+    els.externalImportStartButton.disabled = lastExternalImportDialogBlocked;
+    els.externalImportCancelButton.disabled = false;
+  }
+}
+
+async function openExternalImportDialogAndSwitch() {
+  setLibraryScopeMode("external");
+  await openExternalImportDialog();
 }
 
 async function openExportDialog() {
@@ -1861,16 +2925,36 @@ async function openUploadDialogWithProviderCheck() {
       await openUploadDialog();
       return;
     }
-    openProviderWarningDialog(config || {});
+    openProviderWarningDialog(config || {}, openUploadDialog);
   } catch (error) {
     openProviderWarningDialog({
       provider_id: "",
       provider_options: [],
       load_error: error.message || String(error),
-    });
+    }, openUploadDialog);
   } finally {
     uploadProviderCheckInProgress = false;
   }
+}
+
+async function ensureCaptionProviderConfigured(continueAction) {
+  try {
+    const config = await pluginApiGet("caption_provider_config");
+    if (String(config?.provider_id || "").trim()) {
+      return true;
+    }
+    openProviderWarningDialog(config || {}, continueAction);
+  } catch (error) {
+    openProviderWarningDialog(
+      {
+        provider_id: "",
+        provider_options: [],
+        load_error: error.message || String(error),
+      },
+      continueAction,
+    );
+  }
+  return false;
 }
 
 function closeUploadDialog() {
@@ -1935,18 +3019,21 @@ function fillProviderWarningDialog(config) {
   if (warningProviderConfig.load_error) {
     els.providerWarningMessage.textContent = `读取模型配置失败：${warningProviderConfig.load_error}`;
   } else if (selectedId) {
-    els.providerWarningMessage.textContent = "图片转述模型已配置，可以继续上传。";
+    els.providerWarningMessage.textContent = "图片转述模型已配置，可以继续。";
   } else {
     els.providerWarningMessage.textContent = "";
   }
 }
 
-function openProviderWarningDialog(config) {
+function openProviderWarningDialog(config, continueAction = null) {
+  providerWarningContinueAction =
+    typeof continueAction === "function" ? continueAction : null;
   fillProviderWarningDialog(config || {});
   els.providerWarningOverlay.classList.remove("is-hidden");
 }
 
 function closeProviderWarningDialog() {
+  providerWarningContinueAction = null;
   els.providerWarningOverlay.classList.add("is-hidden");
   els.providerWarningMessage.textContent = "";
 }
@@ -1997,8 +3084,13 @@ async function continueFromProviderWarning() {
       return;
     }
   }
+  const action = providerWarningContinueAction;
   closeProviderWarningDialog();
-  await openUploadDialog();
+  if (action) {
+    await action();
+  } else {
+    await openUploadDialog();
+  }
 }
 
 async function openTagCategoryDialog() {
@@ -2691,6 +3783,9 @@ async function deleteImage(image, button, source = MANUAL_LIBRARY_SOURCE) {
     if (String(selectedSolidifiedGalleryImageId || "").trim() === deletedImageId) {
       selectedSolidifiedGalleryImageId = "";
     }
+    if (String(selectedExternalGalleryImageId || "").trim() === deletedImageId) {
+      selectedExternalGalleryImageId = "";
+    }
     if (result?.library) {
       applyLibraryState(result.library, { force: true });
     } else {
@@ -2998,6 +4093,10 @@ els.manualLibraryScopeButton.addEventListener("click", () =>
 els.autoCollectionScopeButton.addEventListener("click", () =>
   setLibraryScopeMode("auto"),
 );
+els.externalImportScopeButton.addEventListener("click", () => {
+  setLibraryScopeMode("external");
+  refreshExternalImportPending();
+});
 els.libraryListModeButton.addEventListener("click", () =>
   setLibraryViewMode("list", MANUAL_LIBRARY_SOURCE),
 );
@@ -3009,6 +4108,12 @@ els.solidifiedListModeButton.addEventListener("click", () =>
 );
 els.solidifiedGalleryModeButton.addEventListener("click", () =>
   setLibraryViewMode("gallery", SOLIDIFIED_LIBRARY_SOURCE),
+);
+els.externalListModeButton.addEventListener("click", () =>
+  setLibraryViewMode("list", EXTERNAL_LIBRARY_SOURCE),
+);
+els.externalGalleryModeButton.addEventListener("click", () =>
+  setLibraryViewMode("gallery", EXTERNAL_LIBRARY_SOURCE),
 );
 els.solidifiedBackToScopeButton.addEventListener(
   "click",
@@ -3026,6 +4131,12 @@ els.solidifiedLibraryTagSearchInput.addEventListener("input", (event) =>
 els.solidifiedLibraryTagSearchClearButton.addEventListener("click", () =>
   setLibraryTagSearch(SOLIDIFIED_LIBRARY_SOURCE, ""),
 );
+els.externalLibraryTagSearchInput.addEventListener("input", (event) =>
+  setLibraryTagSearch(EXTERNAL_LIBRARY_SOURCE, event.target.value),
+);
+els.externalLibraryTagSearchClearButton.addEventListener("click", () =>
+  setLibraryTagSearch(EXTERNAL_LIBRARY_SOURCE, ""),
+);
 els.libraryUploadButton.addEventListener(
   "click",
   openUploadDialogWithProviderCheck,
@@ -3036,10 +4147,31 @@ els.userSearchButton.addEventListener("click", openUserSearchDialog);
 els.proactiveEmojiButton.addEventListener("click", openProactiveEmojiDialog);
 els.autoCollectionButton.addEventListener("click", openAutoCollectionDialog);
 els.memeCombatButton.addEventListener("click", openMemeCombatDialog);
+els.externalImportButton.addEventListener(
+  "click",
+  openExternalImportDialogAndSwitch,
+);
+els.externalLibraryImportButton.addEventListener(
+  "click",
+  openExternalImportDialogAndSwitch,
+);
 els.pendingSkipButton.addEventListener("click", scrollToSolidifiedLibrary);
 els.pendingSelectAllButton.addEventListener("click", toggleAllPendingSelection);
 els.pendingAcceptButton.addEventListener("click", acceptSelectedPendingImages);
 els.pendingDiscardButton.addEventListener("click", discardSelectedPendingImages);
+els.externalImportSelectAllButton.addEventListener(
+  "click",
+  toggleAllExternalPendingSelection,
+);
+els.externalImportDeletePendingButton.addEventListener(
+  "click",
+  deleteSelectedExternalPendingImages,
+);
+els.externalImportPauseButton.addEventListener("click", startExternalCaptioning);
+els.externalImportCancelCaptionButton.addEventListener(
+  "click",
+  cancelExternalCaptioning,
+);
 els.capacityDeleteOldestButton.addEventListener("click", () =>
   resolveCapacityWarning("delete_oldest"),
 );
@@ -3051,6 +4183,18 @@ els.capacityCancelButton.addEventListener("click", () =>
 );
 els.capacityCancelTopButton.addEventListener("click", () =>
   closeCapacityWarningDialog(true),
+);
+els.externalImportWarningConfirmButton.addEventListener(
+  "click",
+  confirmExternalImportWarning,
+);
+els.externalImportWarningCancelButton.addEventListener(
+  "click",
+  closeExternalImportWarning,
+);
+els.externalImportWarningCloseButton.addEventListener(
+  "click",
+  closeExternalImportWarning,
 );
 els.importButton.addEventListener("click", openImportDialog);
 els.exportButton.addEventListener("click", exportConfig);
@@ -3159,9 +4303,29 @@ els.importOverlay.addEventListener("click", (event) => {
     closeImportDialog();
   }
 });
+els.externalImportStatButton.addEventListener(
+  "click",
+  statExternalImportDirectory,
+);
+els.externalImportStartButton.addEventListener("click", startExternalImport);
+els.externalImportCancelButton.addEventListener(
+  "click",
+  closeExternalImportDialog,
+);
+els.externalImportCloseButton.addEventListener("click", closeExternalImportDialog);
+els.externalImportOverlay.addEventListener("click", (event) => {
+  if (event.target === els.externalImportOverlay) {
+    closeExternalImportDialog();
+  }
+});
 els.solidifiedCapacityOverlay.addEventListener("click", (event) => {
   if (event.target === els.solidifiedCapacityOverlay) {
     closeCapacityWarningDialog(true);
+  }
+});
+els.externalImportWarningOverlay.addEventListener("click", (event) => {
+  if (event.target === els.externalImportWarningOverlay) {
+    closeExternalImportWarning();
   }
 });
 if (typeof ResizeObserver === "function") {
@@ -3171,12 +4335,19 @@ if (typeof ResizeObserver === "function") {
     scheduleLibraryRender(SOLIDIFIED_LIBRARY_SOURCE),
   );
   solidifiedLibraryResizeObserver.observe(els.solidifiedLibraryList);
+  const externalLibraryResizeObserver = new ResizeObserver(() =>
+    scheduleLibraryRender(EXTERNAL_LIBRARY_SOURCE),
+  );
+  externalLibraryResizeObserver.observe(els.externalLibraryList);
 } else {
   window.addEventListener("resize", () =>
     scheduleLibraryRender(MANUAL_LIBRARY_SOURCE),
   );
-window.addEventListener("resize", () =>
+  window.addEventListener("resize", () =>
     scheduleLibraryRender(SOLIDIFIED_LIBRARY_SOURCE),
+  );
+  window.addEventListener("resize", () =>
+    scheduleLibraryRender(EXTERNAL_LIBRARY_SOURCE),
   );
 }
 

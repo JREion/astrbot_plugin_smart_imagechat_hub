@@ -2,6 +2,7 @@ from .auto_collection import AutoCollectionMixin
 from .backup_restore import BackupRestoreMixin
 from .caption_library import CaptionLibraryMixin
 from .config_schema import ConfigSchemaMixin
+from .external_import import ExternalImportMixin
 from .image_management import ImageManagementMixin
 from .llm_context import LLMContextMixin
 from .meme_combat import MemeCombatMixin
@@ -15,6 +16,7 @@ __all__ = [
     "BackupRestoreMixin",
     "CaptionLibraryMixin",
     "ConfigSchemaMixin",
+    "ExternalImportMixin",
     "ImageManagementMixin",
     "LLMContextMixin",
     "MemeCombatMixin",

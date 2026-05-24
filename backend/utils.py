@@ -99,6 +99,30 @@ class UtilityMixin:
                 digest.update(chunk)
         return digest.hexdigest()
 
+    def _copy_file_streaming(
+        self,
+        source: Path,
+        target: Path,
+        chunk_size: int = 1024 * 1024,
+    ) -> None:
+        chunk_size = max(int(chunk_size or 0), 64 * 1024)
+        with open(source, "rb") as src, open(target, "wb") as dst:
+            for chunk in iter(lambda: src.read(chunk_size), b""):
+                dst.write(chunk)
+
+    async def _copy_file_streaming_async(
+        self,
+        source: Path,
+        target: Path,
+        chunk_size: int = 1024 * 1024,
+    ) -> None:
+        await asyncio.to_thread(
+            self._copy_file_streaming,
+            source,
+            target,
+            chunk_size,
+        )
+
     async def _cached_sha256_async(self, path: Path) -> str:
         stat = path.stat()
         cache_key = str(path.resolve())

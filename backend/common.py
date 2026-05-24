@@ -27,7 +27,7 @@ from quart import Response, jsonify, request, send_file
 
 
 PLUGIN_NAME = "astrbot_plugin_smart_imagechat_hub"
-PLUGIN_VERSION = "v2.4.8"
+PLUGIN_VERSION = "v2.5.7"
 SKIP_PROACTIVE_EMOJI_EXTRA_KEY = "smart_imagesender_skip_proactive_emoji"
 PENDING_PROACTIVE_EMOJI_EXTRA_KEY = "smart_imagesender_pending_proactive_emoji"
 PENDING_MEME_COMBAT_IMAGE_EXTRA_KEY = "smart_imagesender_pending_meme_combat_image"
@@ -55,10 +55,14 @@ CONFIG_PAGE_PATH = f"/main/extension?open_config={PLUGIN_NAME}"
 LIBRARY_WATCH_INTERVAL_SECONDS = 2.0
 MANUAL_LIBRARY_SOURCE = "manual_upload"
 COLLECTED_LIBRARY_SOURCE = "auto_collected"
+EXTERNAL_LIBRARY_SOURCE = "external_imported"
 PENDING_COLLECTION_FOLDER = "auto_collection/pending_pool"
 COLLECTED_COLLECTION_FOLDER = "auto_collection/solidified_library"
+EXTERNAL_IMPORT_FOLDER = "external_import/imported_library"
 AUTO_COLLECTION_POOL_FILENAME = "auto_collection_pool.json"
 AUTO_COLLECTION_DISCARDED_FILENAME = "auto_collection_discarded.json"
+EXTERNAL_IMPORT_STATE_FILENAME = "external_import_state.json"
+EXTERNAL_IMPORT_THUMBNAIL_FOLDER = "external_import/thumbnails"
 _AUTO_COLLECTION_PLUGIN_REF: Any | None = None
 
 
