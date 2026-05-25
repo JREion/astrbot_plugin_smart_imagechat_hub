@@ -4,27 +4,29 @@
 
 # astrbot_plugin_smart_imagechat_hub
 
-*_✨ [**AstrBot**](*https://github.com/AstrBotDevs/AstrBot*) 智能图片对话插件 ✨_*
+*_✨ [**AstrBot**](*https://github.com/AstrBotDevs/AstrBot*) 智能图片对话插件&emsp;/&emsp;自动斗图&emsp;主动表情&emsp;多源图库 ✨_*
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-![AstrBot >=4.24.2](https://img.shields.io/badge/AstrBot->=4.24.2+-green.svg)
+![AstrBot >=4.24.2](https://img.shields.io/badge/AstrBot-4.24.2%2B-green.svg)
+![Plugin Page](https://img.shields.io/badge/完整适配-最新_Plugin_Page-orange.svg)
 [![GitHub](https://img.shields.io/badge/作者-青尘工作室-cyan)](https://space.bilibili.com/385556208/)
 
 </div>
 
 LLM 驱动的 AstrBot 一体化智能图片对话插件。
 
-自动为图库中的每张图片构建多重特征标签，支持手动传图 & 从群聊里偷图，并通过分析用户意图和对话语境，智能向用户回复合适的图片或表情包。
+支持多来源图库 (其他插件一键同步 & 群聊偷图 & 手动传图)，自动为每张图片构建多个特征标签，并通过分析用户意图和对话语境，实现模仿真人的表情包对话 & 智能斗图。
 
-插件功能多样，可要求 bot 寻找想要的图片、在对话中发送符合语境的表情包，并在群聊中加入队形、连发相关图片或参与图片团战。
+插件功能多样，支持多种**自动斗图**模式、根据语境**主动发送表情**、**基于语义的表情包搜索**。
 
+## 目录
 
 [⭐ 功能特性](#-功能特性) <br />
 [▶️ 快速开始](#️-快速开始) <br />
 [📱 在聊天中使用插件](#-在聊天中使用插件) <br />
 [⚙️ 在全新的 "Plugin UI Page" WebUI 中进行进一步配置](#️-在全新的-plugin-ui-page-webui-中进行进一步配置) <br />
-&emsp;&emsp; [1. 自动标签生成流程](#1-自动标签生成流程)&emsp;&emsp;|&emsp;[2. 为用户寻找表情包](#2-插件能力---为用户寻找表情包)&emsp;|&emsp;[3. 对话中主动发送表情包](#3-插件能力---对话中主动发送表情包) <br />
-&emsp;&emsp; [4. 群聊智能斗图](#4-插件能力---群聊智能斗图)&emsp;&emsp;&emsp;|&emsp;[5. 自动偷图与入库](#5-插件自动偷图)&emsp;&emsp;&emsp;|&emsp;[6. 更多插件配置](#6-更多插件配置) <br />
+&emsp;&emsp; [1. 自动标签生成流程](#1-自动标签生成流程)&emsp;|&emsp;[2. 为用户寻找表情包](#2-插件能力---为用户寻找表情包)&emsp;|&emsp;[3. 对话中主动发送表情包](#3-插件能力---对话中主动发送表情包) <br />
+&emsp;&emsp; [4. 群聊智能斗图](#4-插件能力---群聊智能斗图)&emsp;&emsp;&emsp;|&emsp;[5. 自动偷图与入库](#5-插件自动偷图)&emsp;&emsp;|&emsp;[6. 更多插件配置](#6-更多插件配置) <br />
 &emsp;&emsp; [7. 标签管理系统](#7-标签管理)&emsp;&emsp;&emsp;|&emsp;[8. 插件数据导入导出](#8-插件数据导入导出) <br />
 [❓ 常见问题](#-常见问题)
 
