@@ -7,6 +7,7 @@ import random
 import re
 import shutil
 import tempfile
+import traceback
 import weakref
 import time
 import zipfile
@@ -27,7 +28,7 @@ from quart import Response, jsonify, request, send_file
 
 
 PLUGIN_NAME = "astrbot_plugin_smart_imagechat_hub"
-PLUGIN_VERSION = "v2.5.7"
+PLUGIN_VERSION = "v2.6.1"
 SKIP_PROACTIVE_EMOJI_EXTRA_KEY = "smart_imagesender_skip_proactive_emoji"
 PENDING_PROACTIVE_EMOJI_EXTRA_KEY = "smart_imagesender_pending_proactive_emoji"
 PENDING_MEME_COMBAT_IMAGE_EXTRA_KEY = "smart_imagesender_pending_meme_combat_image"
@@ -35,6 +36,8 @@ USER_SEARCH_EXPLICIT_WAKE_EXTRA_KEY = "smart_imagesender_explicit_user_search_wa
 USER_SEARCH_CONFIG_KEY = "user_search_flow"
 AUTO_COLLECTION_CONFIG_KEY = "auto_image_collection"
 SCHEDULED_BACKUP_CONFIG_KEY = "scheduled_backup"
+MODEL_FALLBACK_CONFIG_KEY = "model_fallback_options"
+PAGE_LIBRARY_DEFAULT_VIEW_MODE_CONFIG_KEY = "page_library_default_view_mode"
 LIBRARY_BUILDER_CONFIG_KEY = "library_builder"
 IMAGE_FILES_CONFIG_KEY = "library_builder.image_files"
 IMAGE_TAGS_CONFIG_KEY = "image_tags"
@@ -64,6 +67,12 @@ AUTO_COLLECTION_DISCARDED_FILENAME = "auto_collection_discarded.json"
 EXTERNAL_IMPORT_STATE_FILENAME = "external_import_state.json"
 EXTERNAL_IMPORT_THUMBNAIL_FOLDER = "external_import/thumbnails"
 _AUTO_COLLECTION_PLUGIN_REF: Any | None = None
+
+
+class CaptionGenerationError(RuntimeError):
+    def __init__(self, message: str, detail: str = "") -> None:
+        super().__init__(message)
+        self.detail = detail or message
 
 
 def set_auto_collection_plugin(plugin: Any) -> None:

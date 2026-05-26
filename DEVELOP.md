@@ -1,5 +1,63 @@
 # DEVELOP
 
+# v2.6.1
+
+- Adjusted the Page model-fallback provider priority controls: the delete
+  action now uses the existing trash icon with white fill, the up/down/delete
+  controls are square icon buttons, and the provider list has spacing below the
+  provider selector.
+- Added the Page-only `page_library_default_view_mode` setting in the More
+  Config dialog after `match_confidence_threshold`. The setting is intentionally
+  not added to native `_conf_schema.json`, and controls the initial list/gallery
+  display mode for manual, solidified, and external image libraries when the
+  Page is opened.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.6.1`.
+
+# v2.6.0
+
+- Added `model_fallback_options`, a plugin-level model failure fallback config
+  group. Page users can choose between inheriting AstrBot's fallback chat model
+  list or maintaining a manually ordered provider list; native WebUI users can
+  use the `priority_1` / `priority_2` / `priority_3` fallback provider fields.
+- Added a shared `_llm_generate_with_provider_fallback` path for plugin-owned LLM
+  calls. Default image captioning, proactive emoji analysis, group meme-combat
+  quick image analysis, meme-combat matching, and user image-search matching now
+  try the configured primary provider first, then manual plugin fallback
+  providers, then AstrBot's `provider_settings.fallback_chat_models`.
+- Added provider-call timeouts and short failure cooldowns so an unavailable
+  provider is skipped for later calls instead of being repeatedly awaited under
+  group image bursts.
+- Hardened group meme-combat battle detection. Each group now allows only one
+  running battle task, clears the image streak when a battle is triggered,
+  caps total battle tasks, and enters a failure cooldown if battle analysis
+  fails. This prevents repeated-image bursts from stacking slow LLM calls when a
+  selected provider is unavailable.
+- Added Page controls for "模型失效时的回退选项" below "定时备份" in the More
+  Config dialog, including add/remove and up/down priority controls for manual
+  fallback providers.
+- Included fallback-provider settings in plugin config snapshots, backup export,
+  and backup import.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.6.0`.
+
+# v2.5.8
+
+- Added an external-import dialog option to import each image's source parent
+  directory name as an additional peer feature tag. The choice is passed through
+  `external_import_start`, stored as `import_extra_tags`, merged into generated
+  tags during captioning, and preserved by backup restore.
+- Changed automatic image caption failures caused by provider errors such as
+  AstrBot `[ERRO]` / `500 Internal Server Error` into a fatal caption stop with
+  source-specific rollback: manual-upload failures are removed, solidified
+  failures are returned to the pending pool, and external-import failures remain
+  in the import-process panel for another explicit "开始" retry.
+- Added a Page error dialog for automatic tag-generation failures. The dialog
+  shows the user-facing recovery message and a collapsible "报错信息" block with
+  the full backend error detail.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.5.8`.
+
 # v2.5.7
 
 - Optimized the Page external-import pending queue for large imports. External

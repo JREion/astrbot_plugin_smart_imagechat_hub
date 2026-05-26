@@ -248,12 +248,28 @@ const els = {
   configHiddenImagesInput: document.getElementById("configHiddenImagesInput"),
   configSyncOnStartupInput: document.getElementById("configSyncOnStartupInput"),
   configConfidenceInput: document.getElementById("configConfidenceInput"),
+  configLibraryDefaultViewModeInput: document.getElementById(
+    "configLibraryDefaultViewModeInput",
+  ),
   scheduledBackupEnabledInput: document.getElementById(
     "scheduledBackupEnabledInput",
   ),
   scheduledBackupTimeInput: document.getElementById("scheduledBackupTimeInput"),
   scheduledBackupLimitInput: document.getElementById("scheduledBackupLimitInput"),
   scheduledBackupConfigList: document.getElementById("scheduledBackupConfigList"),
+  modelFallbackModeInheritInput: document.getElementById(
+    "modelFallbackModeInheritInput",
+  ),
+  modelFallbackModeManualInput: document.getElementById(
+    "modelFallbackModeManualInput",
+  ),
+  modelFallbackManualPanel: document.getElementById("modelFallbackManualPanel"),
+  modelFallbackProviderSelect: document.getElementById(
+    "modelFallbackProviderSelect",
+  ),
+  modelFallbackAddButton: document.getElementById("modelFallbackAddButton"),
+  modelFallbackProviderList: document.getElementById("modelFallbackProviderList"),
+  modelFallbackEmptyText: document.getElementById("modelFallbackEmptyText"),
   configUseCustomReplyInput: document.getElementById("configUseCustomReplyInput"),
   configCustomReplyInput: document.getElementById("configCustomReplyInput"),
   configLlmReplyWhenNotFoundInput: document.getElementById(
@@ -294,6 +310,9 @@ const els = {
   externalImportStatText: document.getElementById("externalImportStatText"),
   externalImportStartButton: document.getElementById("externalImportStartButton"),
   externalImportCancelButton: document.getElementById("externalImportCancelButton"),
+  externalImportParentTagInput: document.getElementById(
+    "externalImportParentTagInput",
+  ),
   exportOverlay: document.getElementById("exportOverlay"),
   exportCloseButton: document.getElementById("exportCloseButton"),
   exportProgressBar: document.getElementById("exportProgressBar"),
@@ -327,10 +346,15 @@ const els = {
   externalImportWarningCloseButton: document.getElementById(
     "externalImportWarningCloseButton",
   ),
+  captionErrorOverlay: document.getElementById("captionErrorOverlay"),
+  captionErrorCloseButton: document.getElementById("captionErrorCloseButton"),
+  captionErrorOkButton: document.getElementById("captionErrorOkButton"),
+  captionErrorMessage: document.getElementById("captionErrorMessage"),
+  captionErrorDetailText: document.getElementById("captionErrorDetailText"),
 };
 
 const pluginApiBase = "/api/plug/astrbot_plugin_smart_imagechat_hub";
-const PLUGIN_VERSION = "v2.5.7";
+const PLUGIN_VERSION = "v2.6.1";
 let bridge = window.AstrBotPluginPage || null;
 let bridgeReady = false;
 let bridgeUnavailable = false;
@@ -353,6 +377,7 @@ let providerWarningContinueAction = null;
 let libraryViewMode = "list";
 let solidifiedLibraryViewMode = "list";
 let externalLibraryViewMode = "list";
+let pageDefaultLibraryViewModeApplied = false;
 let libraryScopeMode = "manual";
 let libraryTagSearchText = "";
 let solidifiedLibraryTagSearchText = "";
@@ -382,12 +407,20 @@ let externalImportDirectoryStat = null;
 let expandedExternalImportDirectories = new Set();
 let currentExternalImportTree = null;
 let pendingExternalImportWarningAction = null;
+let lastCaptionErrorSignature = "";
+let dismissedCaptionErrorSignature = "";
 let scheduledBackupState = {
   enabled: true,
   backup_time: "06:00",
   backup_limit: 3,
   backup_files: [],
   storage_dir: "",
+};
+let modelFallbackConfigCache = {
+  mode: "inherit",
+  provider_ids: [],
+  provider_options: [],
+  astrbot_fallback_provider_ids: [],
 };
 let autoCollectionConfigCache = {
   pending_pool_limit: 100,
@@ -1115,6 +1148,50 @@ function applyResolvedPendingImageUrl(img, image) {
   }
 }
 
+function captionErrorSignature(progress) {
+  return [
+    String(progress?.error_image || ""),
+    String(progress?.error_source || ""),
+    String(progress?.error_detail || progress?.message || ""),
+    String(progress?.updated_at || ""),
+  ].join("|");
+}
+
+function maybeOpenCaptionErrorDialog(progress) {
+  if (
+    !els.captionErrorOverlay ||
+    progress?.status !== "failed" ||
+    (!progress?.error_detail && !progress?.error_message)
+  ) {
+    return;
+  }
+  const signature = captionErrorSignature(progress);
+  if (
+    !signature ||
+    signature === lastCaptionErrorSignature ||
+    signature === dismissedCaptionErrorSignature
+  ) {
+    return;
+  }
+  lastCaptionErrorSignature = signature;
+  els.captionErrorMessage.textContent =
+    progress.error_message || progress.message || "自动标签进程失败。";
+  if (els.captionErrorDetailText) {
+    els.captionErrorDetailText.textContent = String(
+      progress.error_detail || progress.error_message || progress.message || "",
+    );
+  }
+  els.captionErrorOverlay.classList.remove("is-hidden");
+}
+
+function closeCaptionErrorDialog() {
+  dismissedCaptionErrorSignature = lastCaptionErrorSignature;
+  if (!els.captionErrorOverlay) {
+    return;
+  }
+  els.captionErrorOverlay.classList.add("is-hidden");
+}
+
 function renderProgress(progress) {
   const percent = Math.max(0, Math.min(asInt(progress.percent), 100));
   const running = progress.running || progress.status === "running";
@@ -1143,6 +1220,7 @@ function renderProgress(progress) {
   if (progress?.external_import) {
     renderExternalImportStatus(progress.external_import);
   }
+  maybeOpenCaptionErrorDialog(progress);
 }
 
 function updateLibraryScopeVisibility() {
@@ -1402,6 +1480,17 @@ function setLibraryViewMode(mode, source = MANUAL_LIBRARY_SOURCE) {
   }
   state.setViewModeValue(nextMode);
   renderLibraryPreservingScroll(source);
+}
+
+function applyDefaultLibraryViewMode(mode, force = false) {
+  if (pageDefaultLibraryViewModeApplied && !force) {
+    return;
+  }
+  const nextMode = mode === "gallery" ? "gallery" : "list";
+  libraryViewMode = nextMode;
+  solidifiedLibraryViewMode = nextMode;
+  externalLibraryViewMode = nextMode;
+  pageDefaultLibraryViewModeApplied = true;
 }
 
 function scheduleLibraryRender(source = MANUAL_LIBRARY_SOURCE) {
@@ -1820,6 +1909,7 @@ function externalPendingImageSignature(image) {
 }
 
 function applyLibraryState(library, options = {}) {
+  applyDefaultLibraryViewMode(library?.page_library_default_view_mode);
   const nextImages = Array.isArray(library?.manual_images)
     ? library.manual_images
     : Array.isArray(library?.images)
@@ -2707,6 +2797,9 @@ async function openExternalImportDialog() {
   els.externalImportDialogMessage.textContent = "正在读取目录树...";
   els.externalImportSelectedPath.textContent = "请选择一个目录。";
   els.externalImportStatText.textContent = "";
+  if (els.externalImportParentTagInput) {
+    els.externalImportParentTagInput.checked = false;
+  }
   els.externalImportStartButton.disabled = true;
   els.externalImportStatButton.classList.add("is-hidden");
   els.externalImportStatProgress.classList.add("is-hidden");
@@ -2766,6 +2859,7 @@ async function startExternalImport() {
   try {
     await pluginApiPost("external_import_start", {
       directory: selectedExternalImportDirectory,
+      include_parent_dir_tag: Boolean(els.externalImportParentTagInput?.checked),
     });
     closeExternalImportDialog();
     setLibraryScopeMode("external");
@@ -3243,6 +3337,187 @@ function renderProviderOptions(selectEl, options, selectedId) {
   }
 }
 
+function normalizeModelFallbackProviderIds(rawIds) {
+  const ids = [];
+  const seen = new Set();
+  const providerIds = new Set(
+    (modelFallbackConfigCache.provider_options || [])
+      .map((item) => String(item.id || "").trim())
+      .filter(Boolean),
+  );
+  for (const rawId of Array.isArray(rawIds) ? rawIds : []) {
+    const providerId = String(rawId || "").trim();
+    if (!providerId || seen.has(providerId) || !providerIds.has(providerId)) {
+      continue;
+    }
+    seen.add(providerId);
+    ids.push(providerId);
+  }
+  return ids;
+}
+
+function setModelFallbackMode(mode) {
+  modelFallbackConfigCache.mode = mode === "manual" ? "manual" : "inherit";
+  if (els.modelFallbackModeInheritInput) {
+    els.modelFallbackModeInheritInput.checked =
+      modelFallbackConfigCache.mode !== "manual";
+  }
+  if (els.modelFallbackModeManualInput) {
+    els.modelFallbackModeManualInput.checked =
+      modelFallbackConfigCache.mode === "manual";
+  }
+  if (els.modelFallbackManualPanel) {
+    els.modelFallbackManualPanel.classList.toggle(
+      "is-hidden",
+      modelFallbackConfigCache.mode !== "manual",
+    );
+  }
+}
+
+function modelFallbackProviderLabel(providerId) {
+  const option = (modelFallbackConfigCache.provider_options || []).find(
+    (item) => String(item.id || "") === String(providerId || ""),
+  );
+  return option?.label || providerId;
+}
+
+function renderModelFallbackProviderSelect() {
+  if (!els.modelFallbackProviderSelect) {
+    return;
+  }
+  const selectedIds = new Set(modelFallbackConfigCache.provider_ids || []);
+  const options = (modelFallbackConfigCache.provider_options || []).filter(
+    (item) => item.id && !selectedIds.has(String(item.id)),
+  );
+  els.modelFallbackProviderSelect.replaceChildren();
+  for (const item of options) {
+    const option = document.createElement("option");
+    option.value = String(item.id || "");
+    option.textContent = item.label || item.id;
+    els.modelFallbackProviderSelect.appendChild(option);
+  }
+  const hasOptions = options.length > 0;
+  els.modelFallbackProviderSelect.disabled = !hasOptions;
+  if (els.modelFallbackAddButton) {
+    els.modelFallbackAddButton.disabled = !hasOptions;
+  }
+}
+
+function renderModelFallbackProviderList() {
+  if (!els.modelFallbackProviderList) {
+    return;
+  }
+  els.modelFallbackProviderList.replaceChildren();
+  const providerIds = modelFallbackConfigCache.provider_ids || [];
+  els.modelFallbackEmptyText?.classList.toggle("is-hidden", providerIds.length > 0);
+  providerIds.forEach((providerId, index) => {
+    const row = document.createElement("div");
+    row.className = "fallback-provider-row";
+
+    const info = document.createElement("div");
+    info.className = "fallback-provider-info";
+    const title = document.createElement("strong");
+    title.textContent = modelFallbackProviderLabel(providerId);
+    const idText = document.createElement("span");
+    idText.textContent = providerId;
+    info.append(title, idText);
+
+    const actions = document.createElement("div");
+    actions.className = "fallback-provider-actions";
+    const upButton = document.createElement("button");
+    upButton.type = "button";
+    upButton.className = "secondary compact-button";
+    upButton.textContent = "↑";
+    upButton.disabled = index === 0;
+    upButton.addEventListener("click", () =>
+      moveModelFallbackProvider(index, -1),
+    );
+    const downButton = document.createElement("button");
+    downButton.type = "button";
+    downButton.className = "secondary compact-button";
+    downButton.textContent = "↓";
+    downButton.disabled = index === providerIds.length - 1;
+    downButton.addEventListener("click", () =>
+      moveModelFallbackProvider(index, 1),
+    );
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "danger-button compact-button";
+    removeButton.innerHTML = LIBRARY_MODE_ICONS.trash;
+    removeButton.setAttribute("aria-label", "删除");
+    removeButton.title = "删除";
+    removeButton.addEventListener("click", () =>
+      removeModelFallbackProvider(index),
+    );
+    actions.append(upButton, downButton, removeButton);
+
+    row.append(info, actions);
+    els.modelFallbackProviderList.appendChild(row);
+  });
+  renderModelFallbackProviderSelect();
+}
+
+function addModelFallbackProvider() {
+  const providerId = String(els.modelFallbackProviderSelect?.value || "").trim();
+  if (!providerId || modelFallbackConfigCache.provider_ids.includes(providerId)) {
+    return;
+  }
+  modelFallbackConfigCache.provider_ids.push(providerId);
+  renderModelFallbackProviderList();
+}
+
+function moveModelFallbackProvider(index, direction) {
+  const providerIds = modelFallbackConfigCache.provider_ids || [];
+  const nextIndex = index + direction;
+  if (nextIndex < 0 || nextIndex >= providerIds.length) {
+    return;
+  }
+  [providerIds[index], providerIds[nextIndex]] = [
+    providerIds[nextIndex],
+    providerIds[index],
+  ];
+  renderModelFallbackProviderList();
+}
+
+function removeModelFallbackProvider(index) {
+  modelFallbackConfigCache.provider_ids.splice(index, 1);
+  renderModelFallbackProviderList();
+}
+
+function fillModelFallbackConfig(config) {
+  const providerOptions = Array.isArray(config.provider_options)
+    ? config.provider_options.filter((item) => item?.id)
+    : [];
+  modelFallbackConfigCache = {
+    mode: config.mode === "manual" ? "manual" : "inherit",
+    provider_ids: [],
+    provider_options: providerOptions,
+    astrbot_fallback_provider_ids: Array.isArray(config.astrbot_fallback_provider_ids)
+      ? config.astrbot_fallback_provider_ids
+      : [],
+  };
+  modelFallbackConfigCache.provider_ids = normalizeModelFallbackProviderIds(
+    Array.isArray(config.provider_ids)
+      ? config.provider_ids
+      : [config.priority_1, config.priority_2, config.priority_3],
+  );
+  setModelFallbackMode(modelFallbackConfigCache.mode);
+  renderModelFallbackProviderList();
+}
+
+function readModelFallbackConfig() {
+  const providerIds = normalizeModelFallbackProviderIds(
+    modelFallbackConfigCache.provider_ids || [],
+  );
+  return {
+    mode: modelFallbackConfigCache.mode === "manual" ? "manual" : "inherit",
+    provider_ids: providerIds,
+    priority_1: providerIds[0] || "",
+    priority_2: providerIds[1] || "",
+    priority_3: providerIds[2] || "",
+  };
+}
+
 function readProactiveEmojiDialog() {
   return {
     enabled: els.proactiveEmojiEnabledInput.checked,
@@ -3506,6 +3781,8 @@ function fillConfigDialog(config) {
   els.configConfidenceInput.value = clampConfidence(
     config.match_confidence_threshold,
   ).toFixed(2);
+  els.configLibraryDefaultViewModeInput.value =
+    config.page_library_default_view_mode === "gallery" ? "gallery" : "list";
   const backupConfig = config.scheduled_backup || scheduledBackupState;
   scheduledBackupState = {
     ...scheduledBackupState,
@@ -3520,6 +3797,7 @@ function fillConfigDialog(config) {
     clampInt(backupConfig?.backup_limit, 3, 1),
   );
   renderScheduledBackupConfigList();
+  fillModelFallbackConfig(config.model_fallback_options || {});
 }
 
 function readConfigDialog() {
@@ -3527,11 +3805,16 @@ function readConfigDialog() {
     hidden_images: normalizePathList(els.configHiddenImagesInput.value),
     sync_on_startup: els.configSyncOnStartupInput.checked,
     match_confidence_threshold: clampConfidence(els.configConfidenceInput.value),
+    page_library_default_view_mode:
+      els.configLibraryDefaultViewModeInput.value === "gallery"
+        ? "gallery"
+        : "list",
     scheduled_backup: {
       enabled: els.scheduledBackupEnabledInput.checked,
       backup_time: normalizeBackupTime(els.scheduledBackupTimeInput.value),
       backup_limit: clampInt(els.scheduledBackupLimitInput.value, 3, 1),
     },
+    model_fallback_options: readModelFallbackConfig(),
   };
 }
 
@@ -3754,6 +4037,7 @@ async function saveConfigDialog() {
       readConfigDialog(),
     );
     fillConfigDialog(savedConfig || {});
+    applyDefaultLibraryViewMode(savedConfig?.page_library_default_view_mode, true);
     await refreshScheduledBackups();
     els.configMessage.textContent = "已保存。";
     await refreshLibrary();
@@ -4196,6 +4480,12 @@ els.externalImportWarningCloseButton.addEventListener(
   "click",
   closeExternalImportWarning,
 );
+if (els.captionErrorOkButton) {
+  els.captionErrorOkButton.addEventListener("click", closeCaptionErrorDialog);
+}
+if (els.captionErrorCloseButton) {
+  els.captionErrorCloseButton.addEventListener("click", closeCaptionErrorDialog);
+}
 els.importButton.addEventListener("click", openImportDialog);
 els.exportButton.addEventListener("click", exportConfig);
 els.exportManualButton.addEventListener("click", manualExportConfig);
@@ -4290,6 +4580,13 @@ els.userSearchOverlay.addEventListener("click", (event) => {
 });
 els.configSaveButton.addEventListener("click", saveConfigDialog);
 els.configCancelButton.addEventListener("click", closeConfigDialog);
+els.modelFallbackModeInheritInput?.addEventListener("change", () =>
+  setModelFallbackMode("inherit"),
+);
+els.modelFallbackModeManualInput?.addEventListener("change", () =>
+  setModelFallbackMode("manual"),
+);
+els.modelFallbackAddButton?.addEventListener("click", addModelFallbackProvider);
 els.configOverlay.addEventListener("click", (event) => {
   if (event.target === els.configOverlay) {
     closeConfigDialog();
@@ -4328,6 +4625,13 @@ els.externalImportWarningOverlay.addEventListener("click", (event) => {
     closeExternalImportWarning();
   }
 });
+if (els.captionErrorOverlay) {
+  els.captionErrorOverlay.addEventListener("click", (event) => {
+    if (event.target === els.captionErrorOverlay) {
+      closeCaptionErrorDialog();
+    }
+  });
+}
 if (typeof ResizeObserver === "function") {
   const libraryResizeObserver = new ResizeObserver(scheduleLibraryRender);
   libraryResizeObserver.observe(els.libraryList);

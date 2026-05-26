@@ -19,11 +19,14 @@ from .common import (
 
 MEME_COMBAT_CHAIN_COOLDOWN_SECONDS = 45
 MEME_COMBAT_BATTLE_COOLDOWN_SECONDS = 60
+MEME_COMBAT_BATTLE_FAILURE_COOLDOWN_SECONDS = 90
 MEME_COMBAT_BURST_INTERVAL_SECONDS = 0.9
 MEME_COMBAT_MAX_GROUPS = 128
 MEME_COMBAT_MAX_EVENTS_PER_GROUP = 32
+MEME_COMBAT_MAX_BATTLE_TASKS = 8
 MEME_COMBAT_HASH_PREFIX_BYTES = 128 * 1024
 MEME_COMBAT_QUEUE_MAXSIZE = 96
+MEME_COMBAT_LLM_TIMEOUT_SECONDS = 8
 
 
 class MemeCombatMixin:
@@ -32,6 +35,8 @@ class MemeCombatMixin:
         self._last_plugin_image_by_group: dict[str, dict[str, Any]] = {}
         self._meme_combat_last_chain_at: dict[str, float] = {}
         self._meme_combat_last_battle_at: dict[str, float] = {}
+        self._meme_combat_battle_running_groups: set[str] = set()
+        self._meme_combat_battle_failure_until: dict[str, float] = {}
         self._meme_combat_tasks: set[asyncio.Task] = set()
         self._meme_combat_queue: asyncio.Queue[dict[str, Any]] | None = None
         self._meme_combat_worker_task: asyncio.Task | None = None
@@ -618,9 +623,17 @@ class MemeCombatMixin:
         battle_cfg = cfg.get("battle", {})
         if not battle_cfg.get("enabled"):
             return
+        if group_id in self._meme_combat_battle_running_groups:
+            return
         threshold = self._to_int(battle_cfg.get("continuous_image_count"), 6)
         window = self._to_int(battle_cfg.get("time_window_seconds"), 30)
         now = time.time()
+        failure_until = self._to_float(
+            self._meme_combat_battle_failure_until.get(group_id),
+            0.0,
+        )
+        if failure_until > now:
+            return
         last_at = self._meme_combat_last_battle_at.get(group_id, 0.0)
         if now - last_at < MEME_COMBAT_BATTLE_COOLDOWN_SECONDS:
             return
@@ -631,10 +644,14 @@ class MemeCombatMixin:
         ]
         if len(streak) < threshold:
             return
-        self._meme_combat_last_battle_at[group_id] = now
+        if len(self._meme_combat_tasks) >= MEME_COMBAT_MAX_BATTLE_TASKS:
+            return
         sample = random.sample(streak, 2) if len(streak) >= 2 else streak[:]
         if len(sample) < 2:
             return
+        state["streak"] = []
+        self._meme_combat_last_battle_at[group_id] = now
+        self._meme_combat_battle_running_groups.add(group_id)
         task = asyncio.create_task(
             self._handle_meme_battle(event, group_id, sample, battle_cfg)
         )
@@ -709,11 +726,16 @@ class MemeCombatMixin:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
+            self._meme_combat_battle_failure_until[group_id] = (
+                time.time() + MEME_COMBAT_BATTLE_FAILURE_COOLDOWN_SECONDS
+            )
             logger.warning(
                 "astrbot_plugin_smart_imagechat_hub: meme battle failed: %s",
                 exc,
                 exc_info=True,
             )
+        finally:
+            self._meme_combat_battle_running_groups.discard(group_id)
 
     async def _analyze_meme_battle_images(
         self,
@@ -721,12 +743,15 @@ class MemeCombatMixin:
         image_paths: list[str],
         provider_id: str,
     ) -> str:
-        provider_id = await self._meme_combat_provider_id(event, provider_id)
         paths = [path for path in image_paths[:2] if Path(path).is_file()]
         if len(paths) < 2:
             return ""
-        resp = await self.context.llm_generate(
-            chat_provider_id=provider_id,
+        resp = await self._llm_generate_with_provider_fallback(
+            primary_provider_id=provider_id,
+            umo=event.unified_msg_origin,
+            use_current_when_primary_empty=True,
+            operation_name="meme battle image analysis",
+            timeout_seconds=MEME_COMBAT_LLM_TIMEOUT_SECONDS,
             prompt=(
                 "请快速分析这两张连续图片对话的共同语义、情绪、场景和适合接上的表情包方向。"
                 "只输出 6 到 12 个短中文关键词，用空格分隔，不要解释。"
@@ -745,9 +770,12 @@ class MemeCombatMixin:
         profile: dict[str, Any],
         candidates: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        provider_id = await self._meme_combat_provider_id(event, provider_id)
-        resp = await self.context.llm_generate(
-            chat_provider_id=provider_id,
+        resp = await self._llm_generate_with_provider_fallback(
+            primary_provider_id=provider_id,
+            umo=event.unified_msg_origin,
+            use_current_when_primary_empty=True,
+            operation_name="meme battle match analysis",
+            timeout_seconds=MEME_COMBAT_LLM_TIMEOUT_SECONDS,
             prompt=self._match_prompt(profile_text, profile, candidates),
             contexts=[],
             system_prompt=(

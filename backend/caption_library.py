@@ -2,6 +2,7 @@ from .common import (
     AUTO_COLLECTION_CONFIG_KEY,
     Any,
     CAPTION_PROMPT_VERSION,
+    CaptionGenerationError,
     COLLECTED_LIBRARY_SOURCE,
     CONFIG_PAGE_PATH,
     DEFAULT_CAPTION_PROVIDER_CONFIG_KEY,
@@ -11,6 +12,9 @@ from .common import (
     LIBRARY_WATCH_INTERVAL_SECONDS,
     MANUAL_LIBRARY_SOURCE,
     MEME_COMBAT_CONFIG_KEY,
+    MODEL_FALLBACK_CONFIG_KEY,
+    PAGE_LIBRARY_DEFAULT_VIEW_MODE_CONFIG_KEY,
+    Path,
     PROACTIVE_EMOJI_CONFIG_KEY,
     PROGRESS_PAGE_PATH,
     SCHEDULED_BACKUP_CONFIG_KEY,
@@ -22,6 +26,7 @@ from .common import (
     json,
     logger,
     re,
+    shutil,
     time,
 )
 
@@ -304,6 +309,10 @@ class CaptionLibraryMixin:
                     remaining=0,
                     current_image="",
                     message="No images are waiting for tag generation.",
+                    error_detail="",
+                    error_image="",
+                    error_message="",
+                    error_source="",
                 )
             return
         if self._caption_task and not self._caption_task.done():
@@ -326,6 +335,10 @@ class CaptionLibraryMixin:
             current_image="",
             started_at=None,
             message=f"Image tag generation queued for {len(pending_rel_paths)} image(s).",
+            error_detail="",
+            error_image="",
+            error_message="",
+            error_source="",
         )
         try:
             self._caption_task = asyncio.create_task(self._caption_pending_images())
@@ -391,6 +404,10 @@ class CaptionLibraryMixin:
             "updated_at": now,
             "percent": 0,
             "running": False,
+            "error_detail": "",
+            "error_image": "",
+            "error_message": "",
+            "error_source": "",
         }
         progress.update(updates)
         return self._normalize_caption_progress(progress)
@@ -421,6 +438,10 @@ class CaptionLibraryMixin:
                 "remaining": remaining,
                 "current_image": str(progress.get("current_image") or ""),
                 "message": str(progress.get("message") or ""),
+                "error_detail": str(progress.get("error_detail") or ""),
+                "error_image": str(progress.get("error_image") or ""),
+                "error_message": str(progress.get("error_message") or ""),
+                "error_source": str(progress.get("error_source") or ""),
                 "percent": percent,
                 "running": status == "running",
             }
@@ -524,6 +545,9 @@ class CaptionLibraryMixin:
             "external_images": external_items,
             "all_images": all_items,
             "global_tags": self._global_tags(),
+            PAGE_LIBRARY_DEFAULT_VIEW_MODE_CONFIG_KEY: (
+                self._page_library_default_view_mode()
+            ),
             "updated_at": int(time.time()),
         }
 
@@ -557,11 +581,15 @@ class CaptionLibraryMixin:
             AUTO_COLLECTION_CONFIG_KEY: self._auto_collection_config(),
             MEME_COMBAT_CONFIG_KEY: self._meme_combat_config(),
             SCHEDULED_BACKUP_CONFIG_KEY: self._scheduled_backup_config(),
+            MODEL_FALLBACK_CONFIG_KEY: self._model_fallback_snapshot(),
             "request_keywords": self._request_keywords(),
             "hidden_images": sorted(self._hidden_rel_paths()),
             "sync_on_startup": self._cfg_bool("sync_on_startup"),
             "match_confidence_threshold": self._cfg_float(
                 "match_confidence_threshold"
+            ),
+            PAGE_LIBRARY_DEFAULT_VIEW_MODE_CONFIG_KEY: (
+                self._page_library_default_view_mode()
             ),
             "reply_after_search": {
                 "use_custom_reply": self._cfg_bool("use_custom_reply"),
@@ -587,6 +615,11 @@ class CaptionLibraryMixin:
                 self._normalize_scheduled_backup_config(raw_scheduled_backup_cfg)
             )
             self._restart_scheduled_backup_task()
+        raw_model_fallback_cfg = payload.get(MODEL_FALLBACK_CONFIG_KEY)
+        if isinstance(raw_model_fallback_cfg, dict):
+            self.config[MODEL_FALLBACK_CONFIG_KEY] = (
+                self._normalize_model_fallback_config(raw_model_fallback_cfg)
+            )
         raw_meme_combat_cfg = payload.get(MEME_COMBAT_CONFIG_KEY)
         if isinstance(raw_meme_combat_cfg, dict):
             self.config[MEME_COMBAT_CONFIG_KEY] = (
@@ -632,6 +665,12 @@ class CaptionLibraryMixin:
             self.config["match_confidence_threshold"] = max(
                 0.0,
                 min(confidence, 1.0),
+            )
+        if PAGE_LIBRARY_DEFAULT_VIEW_MODE_CONFIG_KEY in payload:
+            self.config[PAGE_LIBRARY_DEFAULT_VIEW_MODE_CONFIG_KEY] = (
+                self._normalize_page_library_default_view_mode(
+                    payload.get(PAGE_LIBRARY_DEFAULT_VIEW_MODE_CONFIG_KEY)
+                )
             )
 
         raw_reply_cfg = payload.get("reply_after_search")
@@ -716,6 +755,14 @@ class CaptionLibraryMixin:
             "provider_options": self._chat_provider_options(),
             "updated_at": int(time.time()),
         }
+
+    def _page_library_default_view_mode(self) -> str:
+        return self._normalize_page_library_default_view_mode(
+            self.config.get(PAGE_LIBRARY_DEFAULT_VIEW_MODE_CONFIG_KEY)
+        )
+
+    def _normalize_page_library_default_view_mode(self, raw: Any) -> str:
+        return "gallery" if str(raw or "").strip() == "gallery" else "list"
 
     def _proactive_emoji_config(self) -> dict[str, Any]:
         return self._normalize_proactive_emoji_config(
@@ -1044,6 +1091,102 @@ class CaptionLibraryMixin:
                 ]
             )
 
+    def _caption_source_failure_hint(self, source: str) -> str:
+        if source == COLLECTED_LIBRARY_SOURCE:
+            return (
+                "自动标签进程失败。失败的固化图像已退回待筛选图片池，"
+                "需要再次选择图片并点击“批量入库”按钮进行标签生成。"
+            )
+        if source == EXTERNAL_LIBRARY_SOURCE:
+            return (
+                "自动标签进程失败。失败的外部导入图像仍保留在“导入进程”栏目中，"
+                "需要重新点击“开始”按钮进行标签生成。"
+            )
+        return (
+            "自动标签进程失败。失败的手动上传图像已移除，"
+            "需要重新上传图片。"
+        )
+
+    def _rollback_caption_failed_item(
+        self,
+        item: dict[str, Any],
+        rel_path: str,
+    ) -> str:
+        source = self._library_source_for_rel_path(rel_path, item)
+        if source == EXTERNAL_LIBRARY_SOURCE:
+            item["caption_status"] = "pending"
+            item["caption_prompt_version"] = 0
+            item["captioned_at"] = 0
+            item["updated_at"] = int(time.time())
+            self._external_import_state["caption_paused"] = True
+            self._save_external_import_state()
+            return source
+        if source == COLLECTED_LIBRARY_SOURCE:
+            self._restore_caption_failed_solidified_item_to_pool(item, rel_path)
+            return source
+        self._delete_image(
+            str(item.get("id") or self._image_id(rel_path)),
+            source=MANUAL_LIBRARY_SOURCE,
+            sync_after=False,
+        )
+        return MANUAL_LIBRARY_SOURCE
+
+    def _restore_caption_failed_solidified_item_to_pool(
+        self,
+        item: dict[str, Any],
+        rel_path: str,
+    ) -> None:
+        try:
+            source_path = self._abs_plugin_data_path(rel_path)
+        except ValueError:
+            source_path = None
+        if not source_path or not source_path.is_file():
+            images = self._index.get("images", {})
+            if isinstance(images, dict):
+                images.pop(str(item.get("id") or self._image_id(rel_path)), None)
+                images.pop(self._image_id(rel_path), None)
+            return
+
+        group_id = str(item.get("collected_from_group_id") or "restore")
+        sender_id = str(item.get("collected_sender_id") or "")
+        collected_at = self._to_int(item.get("collected_at"), int(time.time()))
+        suffix = source_path.suffix.lower() or Path(rel_path).suffix.lower() or ".jpg"
+        pending_rel_path = self._unique_collected_pending_rel_path(
+            group_id,
+            collected_at or int(time.time()),
+            suffix,
+        )
+        pending_path = self._abs_plugin_data_path(pending_rel_path)
+        pending_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            source_path.replace(pending_path)
+        except OSError:
+            shutil.copyfile(source_path, pending_path)
+            source_path.unlink()
+
+        stat = pending_path.stat()
+        image_id = self._image_id(pending_rel_path)
+        images = self._index.get("images", {})
+        if isinstance(images, dict):
+            images.pop(str(item.get("id") or self._image_id(rel_path)), None)
+            images.pop(self._image_id(rel_path), None)
+        pool_images = self._collection_pool.setdefault("images", {})
+        if not isinstance(pool_images, dict):
+            pool_images = {}
+            self._collection_pool["images"] = pool_images
+        pool_images[image_id] = {
+            "id": image_id,
+            "rel_path": pending_rel_path,
+            "filename": pending_path.name,
+            "sha256": str(item.get("sha256") or ""),
+            "size": stat.st_size,
+            "mtime": int(stat.st_mtime),
+            "group_id": group_id,
+            "sender_id": sender_id,
+            "collected_at": collected_at or int(time.time()),
+        }
+        self._save_collection_pool()
+
     async def _caption_pending_images(self) -> None:
         started_at = int(time.time())
         total = len(self._pending_caption_rel_paths())
@@ -1056,6 +1199,10 @@ class CaptionLibraryMixin:
             current_image="",
             started_at=started_at,
             message=f"Starting image tag generation for {total} image(s).",
+            error_detail="",
+            error_image="",
+            error_message="",
+            error_source="",
         )
         logger.info(
             "astrbot_plugin_smart_imagechat_hub: background image tag generation started, total=%s.",
@@ -1064,6 +1211,7 @@ class CaptionLibraryMixin:
         completed = 0
         failed = 0
         cancelled = False
+        fatal_error_stopped = False
         attempted_rel_paths: set[str] = set()
 
         try:
@@ -1097,6 +1245,10 @@ class CaptionLibraryMixin:
                         remaining=len(rel_paths),
                         current_image=rel_path,
                         message=f"Generating tags for {rel_path}.",
+                        error_detail="",
+                        error_image="",
+                        error_message="",
+                        error_source="",
                     )
 
                 try:
@@ -1104,9 +1256,31 @@ class CaptionLibraryMixin:
                     auto_tags = await self._caption_image(abs_path)
                     if not auto_tags:
                         auto_tags = self._normalize_caption_tags([], abs_path.name)
+                    images = self._index.get("images", {})
+                    item = (
+                        images.get(self._image_id(rel_path))
+                        if isinstance(images, dict)
+                        else None
+                    )
+                    if isinstance(item, dict):
+                        auto_tags = self._merge_tags(
+                            auto_tags,
+                            item.get("import_extra_tags", []),
+                        )
                     generation_failed = False
+                    fatal_error: CaptionGenerationError | None = None
                 except asyncio.CancelledError:
                     raise
+                except CaptionGenerationError as exc:
+                    logger.error(
+                        "astrbot_plugin_smart_imagechat_hub: image tag generation stopped for %s: %s",
+                        rel_path,
+                        exc,
+                        exc_info=True,
+                    )
+                    auto_tags = []
+                    generation_failed = True
+                    fatal_error = exc
                 except Exception as exc:
                     logger.error(
                         "astrbot_plugin_smart_imagechat_hub: image tag generation failed for %s: %s",
@@ -1116,6 +1290,7 @@ class CaptionLibraryMixin:
                     )
                     auto_tags = []
                     generation_failed = True
+                    fatal_error = CaptionGenerationError(str(exc), detail=str(exc))
 
                 async with self._lock:
                     images = self._index.get("images", {})
@@ -1126,6 +1301,41 @@ class CaptionLibraryMixin:
                     )
                     if not isinstance(item, dict):
                         continue
+                    if fatal_error:
+                        failed += 1
+                        source = self._rollback_caption_failed_item(item, rel_path)
+                        self._save_index()
+                        existing_rel_paths = self._all_existing_index_rel_paths()
+                        self._sync_config_image_files(existing_rel_paths)
+                        self._sync_config_tags(existing_rel_paths)
+                        self._refresh_image_tag_schema(existing_rel_paths)
+                        self._last_library_signature = (
+                            self._library_signature_for_rel_paths(existing_rel_paths)
+                        )
+                        remaining = len(
+                            [
+                                path
+                                for path in self._pending_caption_rel_paths()
+                                if path not in attempted_rel_paths
+                            ]
+                        )
+                        total = completed + failed + remaining
+                        message = self._caption_source_failure_hint(source)
+                        self._set_caption_progress(
+                            status="failed",
+                            total=total,
+                            completed=completed,
+                            failed=failed,
+                            remaining=remaining,
+                            current_image="",
+                            message=message,
+                            error_detail=fatal_error.detail,
+                            error_message=message,
+                            error_image=rel_path,
+                            error_source=source,
+                        )
+                        fatal_error_stopped = True
+                        break
                     manual_tags = self._normalize_tags(item.get("manual_tags", []))
                     selected_global_tags = self._valid_global_tags(
                         item.get("selected_global_tags", [])
@@ -1187,6 +1397,10 @@ class CaptionLibraryMixin:
                         remaining=remaining,
                         current_image="" if status == "done" else rel_path,
                         message=message,
+                        error_detail="",
+                        error_image="",
+                        error_message="",
+                        error_source="",
                     )
 
         except asyncio.CancelledError:
@@ -1196,6 +1410,10 @@ class CaptionLibraryMixin:
                 remaining=len(self._pending_caption_rel_paths()),
                 current_image="",
                 message="Image tag generation was cancelled.",
+                error_detail="",
+                error_image="",
+                error_message="",
+                error_source="",
             )
             logger.info(
                 "astrbot_plugin_smart_imagechat_hub: background image tag generation cancelled."
@@ -1227,7 +1445,7 @@ class CaptionLibraryMixin:
                     ]
                 )
             elapsed = int(time.time()) - started_at
-            if not cancelled:
+            if not cancelled and not fatal_error_stopped:
                 final_status = (
                     "failed" if failed else ("done" if remaining == 0 else "pending")
                 )
@@ -1245,6 +1463,10 @@ class CaptionLibraryMixin:
                         if remaining == 0
                         else "Image tag generation stopped with pending images."
                     ),
+                    error_detail="",
+                    error_image="",
+                    error_message="",
+                    error_source="",
                 )
             logger.info(
                 "astrbot_plugin_smart_imagechat_hub: background image tag generation finished, completed=%s, failed=%s, remaining=%s, elapsed=%ss.",

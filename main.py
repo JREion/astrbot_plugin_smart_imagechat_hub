@@ -75,6 +75,7 @@ class SmartImageSenderPlugin(
         self._caption_cleanup_tasks: set[asyncio.Task] = set()
         self._watch_task: asyncio.Task | None = None
         self._scheduled_backup_task: asyncio.Task | None = None
+        self._model_provider_failure_until: dict[str, float] = {}
         self._auto_collection_queue: asyncio.Queue[dict[str, Any]] | None = None
         self._auto_collection_worker_task: asyncio.Task | None = None
         self._external_import_task: asyncio.Task | None = None
@@ -97,11 +98,13 @@ class SmartImageSenderPlugin(
         self._migrate_auto_collection_config()
         self._migrate_meme_combat_config()
         self._migrate_scheduled_backup_config()
+        self._migrate_model_fallback_config()
         self._ensure_caption_provider_setting_initialized()
         self._refresh_caption_tag_category_schema()
         self._refresh_proactive_emoji_schema()
         self._refresh_meme_combat_schema()
         self._refresh_scheduled_backup_schema()
+        self._refresh_model_fallback_schema()
         self._refresh_image_tag_schema()
         self._cleanup_collection_pool()
         self._enforce_scheduled_backup_limit()

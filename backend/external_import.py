@@ -248,7 +248,11 @@ class ExternalImportMixin:
             "updated_at": int(time.time()),
         }
 
-    async def _start_external_import(self, rel_path: str) -> dict[str, Any]:
+    async def _start_external_import(
+        self,
+        rel_path: str,
+        include_parent_dir_tag: bool = False,
+    ) -> dict[str, Any]:
         rel_path = str(rel_path or "").strip().replace("\\", "/").strip("/")
         directory = self._external_import_dir_from_rel(rel_path)
         if self._external_import_task and not self._external_import_task.done():
@@ -263,6 +267,7 @@ class ExternalImportMixin:
             "skipped_duplicates": 0,
             "skipped_deleted": 0,
             "skipped_errors": 0,
+            "include_parent_dir_tag": bool(include_parent_dir_tag),
             "message": "External image import started.",
             "started_at": int(time.time()),
             "updated_at": int(time.time()),
@@ -272,7 +277,12 @@ class ExternalImportMixin:
             self._external_import_state["active_import"] = active
             self._save_external_import_state()
         self._external_import_task = asyncio.create_task(
-            self._external_import_worker(import_id, directory, rel_path)
+            self._external_import_worker(
+                import_id,
+                directory,
+                rel_path,
+                bool(include_parent_dir_tag),
+            )
         )
         return self._external_import_status_snapshot()
 
@@ -281,6 +291,7 @@ class ExternalImportMixin:
         import_id: str,
         directory: Path,
         rel_path: str,
+        include_parent_dir_tag: bool = False,
     ) -> None:
         try:
             async with self._lock:
@@ -328,6 +339,7 @@ class ExternalImportMixin:
                         source_path,
                         digest,
                         rel_path,
+                        include_parent_dir_tag=include_parent_dir_tag,
                     )
                     async with self._lock:
                         active = self._external_active_import(import_id)
@@ -489,6 +501,7 @@ class ExternalImportMixin:
         source_path: Path,
         digest: str,
         source_rel_path: str,
+        include_parent_dir_tag: bool = False,
     ) -> dict[str, Any] | None:
         try:
             valid_source = (
@@ -522,6 +535,11 @@ class ExternalImportMixin:
         stat = target_path.stat()
         now = int(time.time())
         image_id = self._image_id(target_rel_path)
+        import_extra_tags = (
+            self._external_import_parent_dir_tags(source_path)
+            if include_parent_dir_tag
+            else []
+        )
         item = {
             "id": image_id,
             "rel_path": target_rel_path,
@@ -535,6 +553,7 @@ class ExternalImportMixin:
             "manual_tags_override": False,
             "selected_global_tags": [],
             "tags": self._normalize_caption_tags([], target_path.name),
+            "import_extra_tags": import_extra_tags,
             "caption_status": "pending",
             "caption_prompt_version": 0,
             "captioned_at": 0,
@@ -544,6 +563,13 @@ class ExternalImportMixin:
             "updated_at": now,
         }
         return item
+
+    def _external_import_parent_dir_tags(self, source_path: Path) -> list[str]:
+        try:
+            parent_name = source_path.parent.name
+        except OSError:
+            parent_name = ""
+        return self._normalize_tags([parent_name])[:1]
 
     def _discard_copied_external_import_item(self, item: dict[str, Any]) -> None:
         rel_path = self._norm_rel_path(item.get("rel_path"))
@@ -832,6 +858,10 @@ class ExternalImportMixin:
                 remaining=len(self._pending_caption_rel_paths()),
                 current_image="",
                 message="External import tag generation was cancelled.",
+                error_detail="",
+                error_image="",
+                error_message="",
+                error_source="",
             )
             return result
 
@@ -867,6 +897,10 @@ class ExternalImportMixin:
                 remaining=paused_external_count,
                 current_image="",
                 message="External import tag generation paused.",
+                error_detail="",
+                error_image="",
+                error_message="",
+                error_source="",
             )
             return
         self._set_caption_progress(
@@ -874,4 +908,8 @@ class ExternalImportMixin:
             total=min(current_total, completed + failed),
             remaining=0,
             current_image="",
+            error_detail="",
+            error_image="",
+            error_message="",
+            error_source="",
         )

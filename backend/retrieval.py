@@ -1,6 +1,7 @@
 from .common import (
     Any,
     AstrMessageEvent,
+    CaptionGenerationError,
     COLLECTED_LIBRARY_SOURCE,
     DEFAULT_CAPTION_PROVIDER_CONFIG_KEY,
     Image,
@@ -17,6 +18,7 @@ from .common import (
     logger,
     random,
     re,
+    traceback,
 )
 
 
@@ -275,16 +277,13 @@ class RetrievalMixin:
         candidates: list[dict[str, Any]],
         provider_id: str,
     ) -> dict[str, Any]:
-        provider_ids = {option["id"] for option in self._chat_provider_options()}
-        if provider_id and provider_id not in provider_ids:
-            provider_id = ""
-        if not provider_id:
-            provider_id = await self.context.get_current_chat_provider_id(
-                event.unified_msg_origin
-            )
         prompt = self._proactive_emoji_prompt(reply_text, candidates)
-        resp = await self.context.llm_generate(
-            chat_provider_id=provider_id,
+        resp = await self._llm_generate_with_provider_fallback(
+            primary_provider_id=provider_id,
+            umo=event.unified_msg_origin,
+            use_current_when_primary_empty=True,
+            operation_name="proactive emoji analysis",
+            timeout_seconds=12,
             prompt=prompt,
             contexts=[],
             system_prompt=(
@@ -353,9 +352,9 @@ class RetrievalMixin:
         if not provider_id:
             logger.warning(
                 "astrbot_plugin_smart_imagechat_hub: "
-                "default image caption provider is not configured."
+                "default image caption provider is not configured; "
+                "fallback providers will be used when available."
             )
-            return self._normalize_caption_tags([], image_path.name)
 
         category_labels = self._caption_category_labels()
         category_text = "、".join(category_labels) if category_labels else "基础图像内容"
@@ -371,23 +370,42 @@ class RetrievalMixin:
             "不要输出解释，不要输出 Markdown。"
         )
         try:
-            resp = await self.context.llm_generate(
-                chat_provider_id=provider_id,
+            resp = await self._llm_generate_with_provider_fallback(
+                primary_provider_id=provider_id,
+                operation_name=f"image caption {image_path.name}",
+                timeout_seconds=18,
+                allow_no_provider=True,
                 prompt=prompt,
                 image_urls=[str(image_path)],
                 contexts=[],
                 system_prompt="",
             )
-            tags = self._extract_tags(resp.completion_text, limit=8)
+            if resp is None:
+                logger.warning(
+                    "astrbot_plugin_smart_imagechat_hub: no available provider for image caption; "
+                    "using filename fallback tags for %s.",
+                    image_path.name,
+                )
+                return self._normalize_caption_tags([], image_path.name)
+            completion_text = str(getattr(resp, "completion_text", "") or "")
+            tags = self._extract_tags(completion_text, limit=8)
             return self._normalize_caption_tags(tags, image_path.name)
+        except CaptionGenerationError:
+            raise
         except Exception as exc:
+            detail = "".join(
+                traceback.format_exception(type(exc), exc, exc.__traceback__)
+            )
             logger.error(
                 "astrbot_plugin_smart_imagechat_hub: image caption failed for %s: %s",
                 image_path,
                 exc,
                 exc_info=True,
             )
-            return self._normalize_caption_tags([], image_path.name)
+            raise CaptionGenerationError(
+                f"Image caption generation failed for {image_path.name}: {exc}",
+                detail=detail,
+            ) from exc
 
     def _search_query_profile(self, message: str) -> dict[str, Any]:
         terms = self._search_query_terms(message)
@@ -474,8 +492,12 @@ class RetrievalMixin:
         provider_id = await self.context.get_current_chat_provider_id(
             event.unified_msg_origin
         )
-        resp = await self.context.llm_generate(
-            chat_provider_id=provider_id,
+        resp = await self._llm_generate_with_provider_fallback(
+            primary_provider_id=provider_id,
+            umo=event.unified_msg_origin,
+            use_current_when_primary_empty=True,
+            operation_name="image search request analysis",
+            timeout_seconds=12,
             prompt=self._match_prompt(message, profile, candidates),
             contexts=[],
             system_prompt=(

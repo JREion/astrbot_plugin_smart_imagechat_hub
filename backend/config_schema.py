@@ -168,6 +168,7 @@ class ConfigSchemaMixin:
         self._refresh_caption_tag_category_schema()
         self._refresh_meme_combat_schema()
         self._refresh_scheduled_backup_schema()
+        self._refresh_model_fallback_schema()
         save_config = getattr(self.config, "save_config", None)
         if callable(save_config):
             save_config()

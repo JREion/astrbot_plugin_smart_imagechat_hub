@@ -891,6 +891,10 @@ img.is-loading {
   overflow-wrap: anywhere;
 }
 
+.external-import-parent-tag-option {
+  margin-top: 10px;
+}
+
 .external-import-hint {
   margin: 8px 0 0;
   border: 1px solid #f4c777;
@@ -1068,6 +1072,10 @@ img.is-loading {
   width: min(640px, 100%);
 }
 
+.caption-error-panel {
+  width: min(760px, 100%);
+}
+
 .capacity-body {
   display: grid;
   gap: 16px;
@@ -1091,6 +1099,30 @@ img.is-loading {
 
 .checkbox-row.compact {
   justify-self: start;
+}
+
+.caption-error-details {
+  border: 1px solid #dfe6f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px 12px;
+}
+
+.caption-error-details summary {
+  cursor: pointer;
+  color: #34495e;
+  font-weight: 700;
+}
+
+#captionErrorDetailText {
+  max-height: 260px;
+  margin: 10px 0 0;
+  overflow: auto;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .gallery-row-group {
@@ -1487,6 +1519,10 @@ textarea {
   background: #ecfdf5;
 }
 
+.fallback-section-title {
+  background: #eef2ff;
+}
+
 .config-section-title h3 {
   margin: 0;
   color: #1f2d3d;
@@ -1507,6 +1543,10 @@ textarea {
 
 .backup-section-title p {
   color: #166534;
+}
+
+.fallback-section-title p {
+  color: #3730a3;
 }
 
 .config-item {
@@ -1541,6 +1581,85 @@ textarea {
 
 .config-item-control {
   min-width: 0;
+}
+
+.fallback-mode-options,
+.fallback-provider-picker,
+.fallback-provider-list {
+  display: grid;
+  gap: 10px;
+}
+
+.choice-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #34495e;
+  font-weight: 600;
+}
+
+.fallback-provider-picker {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.fallback-provider-list {
+  margin-top: 12px;
+}
+
+.fallback-provider-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #dfe6f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #ffffff;
+}
+
+.fallback-provider-info {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.fallback-provider-info strong,
+.fallback-provider-info span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fallback-provider-info span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.fallback-provider-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.compact-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+}
+
+.compact-button svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  fill: currentColor;
+}
+
+.fallback-provider-actions .danger-button {
+  color: #ffffff;
 }
 
 .import-fields {
@@ -1803,6 +1922,21 @@ fieldset {
   .danger-button {
     grid-column: 1 / -1;
     justify-self: stretch;
+  }
+
+  .fallback-provider-actions .danger-button {
+    grid-column: auto;
+    justify-self: auto;
+  }
+
+  .fallback-provider-row,
+  .fallback-provider-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .fallback-provider-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .thumb {

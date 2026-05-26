@@ -18,6 +18,8 @@ from .common import (
     LIBRARY_BUILDER_CONFIG_KEY,
     MANUAL_LIBRARY_SOURCE,
     MEME_COMBAT_CONFIG_KEY,
+    MODEL_FALLBACK_CONFIG_KEY,
+    PAGE_LIBRARY_DEFAULT_VIEW_MODE_CONFIG_KEY,
     PENDING_COLLECTION_FOLDER,
     PLUGIN_NAME,
     PLUGIN_VERSION,
@@ -713,6 +715,10 @@ class BackupRestoreMixin:
                 if pending_count
                 else "Backup imported. No images are waiting for tag generation."
             ),
+            error_detail="",
+            error_image="",
+            error_message="",
+            error_source="",
         )
 
         result = {
@@ -1189,6 +1195,9 @@ class BackupRestoreMixin:
             "manual_tags_override": manual_override,
             "selected_global_tags": selected_global_tags,
             "tags": merged_tags,
+            "import_extra_tags": self._normalize_tags(
+                backup_item.get("import_extra_tags", [])
+            ),
             "caption_status": caption_status,
             "captioned_at": self._to_int(
                 backup_item.get("captioned_at"),
@@ -1264,6 +1273,14 @@ class BackupRestoreMixin:
                 continue
             if key == SCHEDULED_BACKUP_CONFIG_KEY:
                 self.config[key] = self._normalize_scheduled_backup_config(value)
+                applied_keys.append(key)
+                continue
+            if key == MODEL_FALLBACK_CONFIG_KEY:
+                self.config[key] = self._normalize_model_fallback_config(value)
+                applied_keys.append(key)
+                continue
+            if key == PAGE_LIBRARY_DEFAULT_VIEW_MODE_CONFIG_KEY:
+                self.config[key] = self._normalize_page_library_default_view_mode(value)
                 applied_keys.append(key)
                 continue
             if key == USER_SEARCH_CONFIG_KEY:
@@ -1481,6 +1498,7 @@ class BackupRestoreMixin:
         snapshot[AUTO_COLLECTION_CONFIG_KEY] = self._auto_collection_config()
         snapshot[MEME_COMBAT_CONFIG_KEY] = self._meme_combat_config()
         snapshot[SCHEDULED_BACKUP_CONFIG_KEY] = self._scheduled_backup_config()
+        snapshot[MODEL_FALLBACK_CONFIG_KEY] = self._model_fallback_config()
         snapshot[USER_SEARCH_CONFIG_KEY] = {
             "enabled": self._cfg_bool("user_search_enabled"),
             "request_keywords": self._request_keywords(),
@@ -1497,6 +1515,9 @@ class BackupRestoreMixin:
         snapshot["sync_on_startup"] = self._cfg_bool("sync_on_startup")
         snapshot["match_confidence_threshold"] = self._cfg_float(
             "match_confidence_threshold"
+        )
+        snapshot[PAGE_LIBRARY_DEFAULT_VIEW_MODE_CONFIG_KEY] = (
+            self._page_library_default_view_mode()
         )
         snapshot[TAG_CATEGORY_CONFIG_KEY] = self._tag_category_settings_for_storage(
             self._tag_category_settings()

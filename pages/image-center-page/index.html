@@ -101,7 +101,7 @@
             <div>
               <p class="eyebrow">Global Tags</p>
               <h2>公用特征标签</h2>
-              <p>可被多个图像共享的特征标签。在本列表中填写并保存后，在图像标签编辑器中可以快速应用这些公用标签。</p>
+              <p>多图共享的可选特征标签。在本列表填写并保存后，在标签编辑器中可快速选择这些公用标签。</p>
             </div>
             <span id="globalTagsMeta" class="meta-text">0 个</span>
           </div>
@@ -505,7 +505,7 @@
             <div class="config-item">
               <div class="config-item-copy">
                 <label for="proactiveEmojiProviderInput">LLM 发言分析模型</label>
-                <p>继承 AstrBot 系统配置中的模型提供商；留空或不可用时，继承当前会话的模型选择策略。建议选择实时性更强的模型，如 gpt-5.4-mini 或 deepseek-v4-flash。</p>
+                <p>继承 AstrBot 系统配置中的模型提供商；留空或不可用时，继承当前会话的模型选择策略。建议选择实时性更强的多模态模型，如 gpt-5.4-mini 或 qwen3.6-flash。</p>
               </div>
               <div class="config-item-control">
                 <select id="proactiveEmojiProviderInput"></select>
@@ -823,7 +823,7 @@
             <div class="config-item">
               <div class="config-item-copy">
                 <label for="memeCombatBattleProviderInput">图片语义快速分析 LLM 模型</label>
-                <p>留空或不可用时继承 AstrBot 当前会话模型选择策略。建议选择实时性更强的模型，如 gpt-5.4-mini 或 deepseek-v4-flash。</p>
+                <p>留空或不可用时继承 AstrBot 当前会话模型选择策略。建议选择实时性更强的多模态模型，如 gpt-5.4-mini 或 qwen3.6-flash。</p>
               </div>
               <div class="config-item-control">
                 <select id="memeCombatBattleProviderInput"></select>
@@ -1074,6 +1074,19 @@
                 />
               </div>
             </div>
+
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="configLibraryDefaultViewModeInput">图像库默认展示方式</label>
+                <p>后续打开 Page 时，三个图像库管理栏目会使用该展示方式。</p>
+              </div>
+              <div class="config-item-control">
+                <select id="configLibraryDefaultViewModeInput">
+                  <option value="list">列表模式</option>
+                  <option value="gallery">画廊模式</option>
+                </select>
+              </div>
+            </div>
           </section>
 
           <section class="config-section">
@@ -1120,6 +1133,47 @@
               </div>
               <div class="config-item-control">
                 <div id="scheduledBackupConfigList" class="backup-mini-list"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="config-section">
+            <div class="config-section-title fallback-section-title">
+              <h3>🧯 模型失效时的回退选项</h3>
+              <p>默认图片转述、图片语义快速分析和 LLM 发言分析模型不可用时使用。</p>
+            </div>
+
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label>回退方式</label>
+                <p>手动列表全部失败后，仍会继续继承 AstrBot 的回退对话模型列表。</p>
+              </div>
+              <div class="config-item-control">
+                <div class="fallback-mode-options">
+                  <label class="choice-option">
+                    <input id="modelFallbackModeInheritInput" type="radio" name="modelFallbackMode" value="inherit" />
+                    <span>继承 AstrBot 的回退对话模型列表</span>
+                  </label>
+                  <label class="choice-option">
+                    <input id="modelFallbackModeManualInput" type="radio" name="modelFallbackMode" value="manual" />
+                    <span>手动配置</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div id="modelFallbackManualPanel" class="config-item is-hidden">
+              <div class="config-item-copy">
+                <label for="modelFallbackProviderSelect">手动回退供应商优先级</label>
+                <p>列表从上到下依次尝试。</p>
+              </div>
+              <div class="config-item-control">
+                <div class="fallback-provider-picker">
+                  <select id="modelFallbackProviderSelect"></select>
+                  <button id="modelFallbackAddButton" type="button" class="secondary">添加</button>
+                </div>
+                <div id="modelFallbackProviderList" class="fallback-provider-list"></div>
+                <p id="modelFallbackEmptyText" class="empty-text inline">尚未添加手动回退供应商。</p>
               </div>
             </div>
           </section>
@@ -1217,6 +1271,10 @@
 
         <div id="externalImportTree" class="external-tree"></div>
         <p id="externalImportSelectedPath" class="external-selected-path">请选择一个目录。</p>
+        <label class="checkbox-row external-import-parent-tag-option">
+          <input id="externalImportParentTagInput" type="checkbox" />
+          <span>将图像的上一级目录名称，作为标签之一导入<br />(选择此项可继承 meme_manager 等插件的标签系统)</span>
+        </label>
         <p id="externalImportStatHint" class="external-import-hint is-hidden">请选择目录后点击“统计图库规模”，统计完成后才能开始导入。</p>
         <p id="externalImportDialogMessage" class="editor-message"></p>
 
@@ -1275,6 +1333,31 @@
           <span class="action-spacer"></span>
           <button id="externalImportWarningConfirmButton" type="button" class="danger-button">确定</button>
           <button id="externalImportWarningCancelButton" type="button" class="secondary">取消</button>
+        </div>
+      </section>
+    </div>
+
+    <div id="captionErrorOverlay" class="editor-overlay is-hidden" role="dialog" aria-modal="true">
+      <section class="editor-panel caption-error-panel">
+        <div class="editor-header">
+          <div>
+            <p class="eyebrow">Caption Error</p>
+            <h2>自动标签进程失败</h2>
+          </div>
+          <button id="captionErrorCloseButton" type="button" class="icon-button" aria-label="关闭">×</button>
+        </div>
+
+        <div class="capacity-body">
+          <p id="captionErrorMessage" class="warning-dialog-text"></p>
+          <details class="caption-error-details">
+            <summary>报错信息</summary>
+            <pre id="captionErrorDetailText"></pre>
+          </details>
+        </div>
+
+        <div class="capacity-actions">
+          <span class="action-spacer"></span>
+          <button id="captionErrorOkButton" type="button">知道了</button>
         </div>
       </section>
     </div>

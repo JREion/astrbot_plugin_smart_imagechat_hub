@@ -362,6 +362,10 @@ class WebApiMixin:
                     remaining=pending_count,
                     current_image="",
                     message="Image tag regeneration queued with updated category settings.",
+                    error_detail="",
+                    error_image="",
+                    error_message="",
+                    error_source="",
                 )
 
         if category_changed and recaption_all:
@@ -606,9 +610,16 @@ class WebApiMixin:
     async def external_import_start_api(self):
         payload = await request.get_json(silent=True) or {}
         directory = str(payload.get("directory") or "").strip()
+        include_parent_dir_tag = self._to_bool(
+            payload.get("include_parent_dir_tag"),
+            False,
+        )
         try:
             await self._sync_library_if_changed(caption_mode="none")
-            status = await self._start_external_import(directory)
+            status = await self._start_external_import(
+                directory,
+                include_parent_dir_tag=include_parent_dir_tag,
+            )
         except ValueError as exc:
             return jsonify({"status": "error", "message": str(exc)})
         return jsonify({"status": "ok", "data": status})

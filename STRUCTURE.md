@@ -6,7 +6,7 @@ configuration semantics change.
 
 ## Version
 
-- Current plugin version: `v2.5.7`
+- Current plugin version: `v2.6.1`
 - AstrBot requirement: `>=4.24.2`
 - Main entry: `main.py`
 - Backend package: `backend/`
@@ -100,7 +100,17 @@ astrbot_plugin_smart_imagechat_hub/
   accumulating work on AstrBot's message-processing path.
 - `scheduled_backup`: Controls daily automatic ZIP export, retention count, and
   the read-only list of stored backups.
+- `model_fallback_options`: Controls model-failure fallback for plugin-owned LLM
+  calls. `mode=inherit` directly uses AstrBot's
+  `provider_settings.fallback_chat_models` after the primary provider fails.
+  `mode=manual` first tries `provider_ids` in priority order, then still falls
+  through to AstrBot's fallback chat model list. Native WebUI also exposes
+  `priority_1`, `priority_2`, and `priority_3` as a compact ordering fallback
+  when drag/reorder controls are unavailable.
 - `match_confidence_threshold`: Minimum LLM confidence accepted by retrieval.
+- `page_library_default_view_mode`: Page-only setting, not exposed in native
+  `_conf_schema.json`. It stores the initial list/gallery display mode for the
+  manual, solidified, and external image libraries when the Page is opened.
 
 ## Backend Modules
 
@@ -111,7 +121,9 @@ message hooks stay in `main.py` and call methods supplied by backend mixins.
 - `backend/common.py`: shared imports, constants, wake/collection filters, and
   the weak plugin reference used by the auto-collection filter.
 - `backend/web_api.py`: Page and Web API route registration plus route handlers.
-- `backend/llm_context.py`: LLM persona request and conversation lookup helpers.
+- `backend/llm_context.py`: LLM persona request, conversation lookup helpers,
+  model fallback config normalization, AstrBot fallback-provider discovery, and
+  timeout/cooldown wrapped LLM generation.
 - `backend/config_schema.py`: JSON state load/save, config migration, and dynamic
   WebUI schema refresh.
 - `backend/caption_library.py`: library sync, caption background jobs, progress
@@ -146,6 +158,8 @@ All routes are registered below `/api/plug/astrbot_plugin_smart_imagechat_hub/`.
 - `POST caption_start`: Sync library and start/continue background captioning.
 - `GET caption_library`: Image library snapshot, global tags, and per-image tags.
 - `GET/POST caption_plugin_config`: Read/write main plugin settings.
+  The snapshot includes `model_fallback_options` with provider options for the
+  Page fallback-priority editor.
 - `GET/POST caption_tag_category_settings`: Read/write caption provider and
   tag-category settings. Optional `recaption_all` queues full regeneration.
 - `GET/POST proactive_emoji_config`: Read/write proactive reply settings.
@@ -161,7 +175,9 @@ All routes are registered below `/api/plug/astrbot_plugin_smart_imagechat_hub/`.
 - `POST external_import_stat`: Count supported image files under one selected
   external directory and its subdirectories.
 - `POST external_import_start`: Start an incremental import from the selected
-  external directory into this plugin's external imported library.
+  external directory into this plugin's external imported library. Optional
+  `include_parent_dir_tag=true` stores each source image's parent-directory name
+  in `import_extra_tags` so captioning can merge it as a normal feature tag.
 - `GET external_import_status`: Return active/last external import counters,
   pending count, external library count, and persistent caption pause state.
 - `GET external_import_pending`: Return imported external images that are still
@@ -296,18 +312,20 @@ Main sections in `pages/image-center-page/index.html`:
   `autoCollectionRejectDiscardedInput`.
 - External import dialog: `externalImportOverlay`, `externalImportTree`,
   `externalImportSelectedPath`, `externalImportStatHint`,
-  `externalImportStatButton`,
+  `externalImportParentTagInput`, `externalImportStatButton`,
   `externalImportStatProgress`, `externalImportStatText`,
   `externalImportStartButton`, `externalImportCancelButton`, and close button.
   The tree is a compact scrollable folder picker. Top-level plugin directories
   render first and child directories are shown only after the user expands a
-  folder. A yellow stat hint is shown after directory selection. The start
-  button stays disabled until a directory is selected and the explicit stat API
-  returns a positive image count. If an external import is copying files, or if
-  the external-import auto-caption flow is active while pending external images
-  remain, the dialog shows a running-import notice in the yellow stat-hint box
-  and disables both the stat and start buttons until polling observes that the
-  process has completed or the user cancels the active caption run.
+  folder. `externalImportParentTagInput` optionally imports each image's source
+  parent-directory name as an additional feature tag. A yellow stat hint is
+  shown after directory selection. The start button stays disabled until a
+  directory is selected and the explicit stat API returns a positive image
+  count. If an external import is copying files, or if the external-import
+  auto-caption flow is active while pending external images remain, the dialog
+  shows a running-import notice in the yellow stat-hint box and disables both
+  the stat and start buttons until polling observes that the process has
+  completed or the user cancels the active caption run.
 - Meme-combat dialog: `memeCombatOverlay`, save/cancel buttons, the total
   enable switch, `memeCombatFollow*` inputs for join-pattern settings,
   `memeCombatBurst*` inputs for image burst settings, and
@@ -320,12 +338,26 @@ Main sections in `pages/image-center-page/index.html`:
 - Proactive emoji overlay: enable/provider/meme-only/embed/probability inputs.
 - User search overlay: enable switch and request keyword textarea.
 - More config overlay: hidden image paths, startup sync, confidence threshold.
+  It also includes `configLibraryDefaultViewModeInput`, a Page-only selector
+  for the default list/gallery mode used by the three image-library managers on
+  later Page opens.
 - More config overlay: also includes the scheduled-backup section with enable,
   time, retention, and visible backup list fields. Backup rows show download and
   delete actions plus the package version, highlighting non-current versions.
-- Upload/provider warning/import overlays: handle upload, missing provider, and
-  backup import workflows. Page backup import uses the AstrBot bridge upload
-  path `caption_import_config_file` so it works inside the protected Page iframe.
+- More config overlay: also includes the model-failure fallback section below
+  scheduled backup. Its Page element ids are
+  `modelFallbackModeInheritInput`, `modelFallbackModeManualInput`,
+  `modelFallbackManualPanel`, `modelFallbackProviderSelect`,
+  `modelFallbackAddButton`, `modelFallbackProviderList`, and
+  `modelFallbackEmptyText`. Manual mode stores provider priority in
+  `model_fallback_options.provider_ids`, with square up/down icon buttons
+  changing order and a trash icon button removing a provider.
+- Upload/provider warning/import/error overlays: handle upload, missing
+  provider, automatic tag-generation failures, and backup import workflows.
+  `captionErrorOverlay` displays the source-specific recovery message and a
+  collapsible `captionErrorDetailText` block for the full backend error detail.
+  Page backup import uses the AstrBot bridge upload path
+  `caption_import_config_file` so it works inside the protected Page iframe.
   Because the bridge upload API only carries a single `file` field, import mode
   and the "overwrite plugin config" checkbox are encoded into the temporary
   uploaded filename and decoded by the backend. The checkbox remains unchecked
@@ -360,6 +392,9 @@ backup package version constant in sync with `PLUGIN_VERSION`:
   `scheduleLibraryRender` only rebuilds when the library width changes enough to
   alter the gallery column count. This avoids mobile browser sticky-header
   scroll jumps caused by address-bar resize events or unchanged polling refreshes.
+- `applyDefaultLibraryViewMode` applies `page_library_default_view_mode` once
+  when the Page first receives a library snapshot, so later polling does not
+  overwrite a user-initiated list/gallery switch during the same Page session.
 - The Page now preserves the current scroll position around library re-renders
   and defers gallery refreshes while the page is actively scrolling, which
   prevents the sticky header from snapping back on iOS browsers.
@@ -480,7 +515,10 @@ The user search flow is deliberately lightweight:
   two images, resolves them only at trigger time, calls the configured quick
   analysis provider or the current AstrBot session provider, and searches the
   local library from the compact semantic keywords. After sending, the window is
-  cleared to avoid self-trigger loops.
+  cleared to avoid self-trigger loops. Since v2.6.0 it also allows only one
+  running battle task per group, clears the streak as soon as a battle is
+  launched, caps global battle tasks with `MEME_COMBAT_MAX_BATTLE_TASKS`, and
+  applies a short per-group failure cooldown when analysis fails.
 
 ### Captioning And Indexing
 
@@ -543,9 +581,10 @@ The user search flow is deliberately lightweight:
   images from selected sibling plugin-data directories into
   `files/external_import/imported_library/`, dedupe against all known plugin
   libraries and pending pools by SHA-256 metadata, mark new images `pending`,
-  and expose the untagged import queue to the Page. The import worker copies
-  files outside the plugin-wide lock, saves lightweight index/state batches
-  during long imports, and defers full config/schema synchronization to final
+  optionally store a normalized parent-directory tag in `import_extra_tags`, and
+  expose the untagged import queue to the Page. The import worker copies files
+  outside the plugin-wide lock, saves lightweight index/state batches during
+  long imports, and defers full config/schema synchronization to final
   completion so Page actions and other AstrBot tasks are not blocked by bulk IO.
 - `_external_import_image_response_path` and `external_import_thumb`: Resolve
   the direct image response path used by external pending thumbnails. A
@@ -565,12 +604,21 @@ The user search flow is deliberately lightweight:
   configured, then opens the pause gate and starts the shared caption worker.
   `_cancel_external_captioning` deletes untagged external imports without adding
   those digest records.
-- `_caption_pending_images`: Processes pending caption jobs. Its cancellation
-  cleanup uses a tracked shielded task so images marked `running` are restored
-  to `pending` even if the caption worker is cancelled while waiting on the
-  plugin lock.
-- `_caption_image`: Calls the configured image caption provider and normalizes
-  tags through `_normalize_caption_tags`.
+- `_caption_pending_images`: Processes pending caption jobs and merges
+  `import_extra_tags` into successful LLM-generated tags. Provider exceptions or
+  `[ERRO]` provider text stop the queue, publish `error_message`,
+  `error_detail`, `error_image`, and `error_source` in caption progress, then
+  roll back the failed image according to source: manual uploads are removed,
+  solidified images return to the pending pool, and external imports remain in
+  the import-process panel with captioning paused for an explicit retry. Its
+  cancellation cleanup uses a tracked shielded task so images marked `running`
+  are restored to `pending` even if the caption worker is cancelled while
+  waiting on the plugin lock.
+- `_caption_image`: Calls the configured image caption provider through the
+  shared provider fallback chain. Provider exceptions, timeouts, or AstrBot
+  `[ERRO]`/500 response text try the next configured fallback provider before a
+  `CaptionGenerationError` is raised; if no provider is available it returns
+  filename-derived fallback tags instead of blocking.
 - `_reset_all_caption_tags_for_new_categories`: Clears auto/manual tags for full
   recaption after category changes.
 
@@ -586,6 +634,15 @@ The user search flow is deliberately lightweight:
 - `_refresh_proactive_emoji_schema`: Updates proactive provider options.
 - `_refresh_meme_combat_schema`: Updates the battle quick-analysis provider
   options for native WebUI.
+- `_migrate_model_fallback_config`, `_normalize_model_fallback_config`,
+  `_model_fallback_config`, `_model_fallback_snapshot`, and
+  `_refresh_model_fallback_schema`: Maintain the plugin fallback-provider
+  config, Page snapshot, and native WebUI priority select options.
+- `_llm_generate_with_provider_fallback`: Shared LLM call wrapper. Candidate
+  order is primary provider, current session provider when the feature inherits
+  current chat, manual plugin fallback providers when enabled, then AstrBot
+  `fallback_chat_models`. Failed providers are cooled down briefly and every
+  call is wrapped in a bounded timeout.
 - `_plugin_config_snapshot`, `_update_plugin_config_from_payload`: Page config IO.
 - `_tag_category_settings_snapshot`, `_normalize_tag_category_settings`: Caption
   category config IO.
@@ -610,11 +667,14 @@ The user search flow is deliberately lightweight:
   Imported index items preserve explicit waiting states (`pending`/`failed`)
   even when the backup item already has filename fallback tags, so untagged
   external-import images remain in the Page import-process panel after backup
-  export/import.
+  export/import. External-import `import_extra_tags` are preserved so
+  parent-directory tags survive backup round-trips.
 - `_restore_backup_external_import_state`: Restores external-import digest
   history and persistent Page state, including the caption pause flag, while
   clearing any active import process from the imported backup.
 - `_apply_imported_config`: Restores compatible config fields.
+  `model_fallback_options` is normalized on import so stale provider ids from a
+  different AstrBot instance are dropped.
 - `_clear_image_library`: Removes current indexed image files for overwrite mode.
 
 ### Tag Helpers
@@ -622,6 +682,9 @@ The user search flow is deliberately lightweight:
 - `_tags_from_item`: Runtime merged tag set used for retrieval.
 - `_display_tags_from_item`: Page-visible manual-or-auto tags.
 - `_normalize_tags`, `_merge_tags`, `_valid_global_tags`: Tag normalization.
+- `import_extra_tags`: Optional normalized external-import tags derived from the
+  source parent directory. They are merged into generated auto tags rather than
+  treated as manual overrides.
 - `_filename_tags`: Fallback tags derived from filename.
 - `_is_image_type_tag`, `_choose_base_image_type`: Image type tag handling.
 
