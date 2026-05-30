@@ -663,6 +663,15 @@ select option.provider-warning-option {
   gap: 10px;
 }
 
+#pendingPoolList {
+  --pending-pool-column-width: max(110px, calc((100% - 50px) / 6));
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(var(--pending-pool-column-width), var(--pending-pool-column-width))
+  );
+  justify-content: start;
+}
+
 #externalImportPendingList {
   grid-template-columns: repeat(auto-fill, minmax(68px, 68px));
   justify-content: start;
@@ -1961,6 +1970,10 @@ fieldset {
   .pending-pool-list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
+  }
+
+  #pendingPoolList {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .pending-card {
