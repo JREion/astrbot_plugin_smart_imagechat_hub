@@ -12,6 +12,12 @@ from .common import (
     EXTERNAL_IMPORT_STATE_FILENAME,
     EXTERNAL_LIBRARY_SOURCE,
     GLOBAL_TAGS_CONFIG_KEY,
+    IMAGEBED_IMPORT_CONFIG_KEY,
+    IMAGEBED_IMPORT_DISCARDED_FILENAME,
+    IMAGEBED_IMPORT_LIBRARY_FOLDER,
+    IMAGEBED_IMPORT_PENDING_FOLDER,
+    IMAGEBED_IMPORT_STATE_FILENAME,
+    IMAGEBED_LIBRARY_SOURCE,
     IMAGE_FILES_CONFIG_KEY,
     IMAGE_TAGS_CONFIG_KEY,
     LEGACY_IMAGE_TAGS_CONFIG_KEY,
@@ -65,6 +71,12 @@ class BackupRestoreMixin:
         external_import_snapshot = self._json_safe_copy(
             self._external_import_state
         )
+        imagebed_import_snapshot = self._json_safe_copy(
+            self._imagebed_import_state
+        )
+        imagebed_discarded_snapshot = self._json_safe_copy(
+            self._imagebed_discarded
+        )
         manifest = {
             "plugin": PLUGIN_NAME,
             "version": PLUGIN_VERSION,
@@ -89,6 +101,8 @@ class BackupRestoreMixin:
             "collection_pool": collection_pool_snapshot,
             "discarded_collection": discarded_collection_snapshot,
             "external_import_state": external_import_snapshot,
+            "imagebed_import_state": imagebed_import_snapshot,
+            "imagebed_discarded": imagebed_discarded_snapshot,
         }
 
     async def _create_persistent_backup(self) -> dict[str, Any]:
@@ -174,6 +188,16 @@ class BackupRestoreMixin:
                     self._json_dump_bytes(
                         snapshot.get("external_import_state", {})
                     ),
+                )
+                zf.writestr(
+                    IMAGEBED_IMPORT_STATE_FILENAME,
+                    self._json_dump_bytes(
+                        snapshot.get("imagebed_import_state", {})
+                    ),
+                )
+                zf.writestr(
+                    IMAGEBED_IMPORT_DISCARDED_FILENAME,
+                    self._json_dump_bytes(snapshot.get("imagebed_discarded", {})),
                 )
                 written_rel_paths: set[str] = set()
                 for rel_path in [*rel_paths, *pending_rel_paths]:
@@ -590,6 +614,16 @@ class BackupRestoreMixin:
                     if EXTERNAL_IMPORT_STATE_FILENAME in members
                     else self._empty_external_import_state()
                 )
+                imagebed_import_state = (
+                    self._read_json_zip_member(zf, IMAGEBED_IMPORT_STATE_FILENAME)
+                    if IMAGEBED_IMPORT_STATE_FILENAME in members
+                    else self._empty_imagebed_import_state()
+                )
+                imagebed_discarded = (
+                    self._read_json_zip_member(zf, IMAGEBED_IMPORT_DISCARDED_FILENAME)
+                    if IMAGEBED_IMPORT_DISCARDED_FILENAME in members
+                    else self._empty_imagebed_discarded()
+                )
                 if not isinstance(config, dict):
                     raise ValueError("Invalid backup: config.json must be an object")
                 if not isinstance(image_index, dict):
@@ -613,6 +647,21 @@ class BackupRestoreMixin:
                 external_import_state.setdefault("last_stat", {})
                 external_import_state.setdefault("caption_paused", True)
                 external_import_state.setdefault("warning_preferences", {})
+                if not isinstance(imagebed_import_state, dict):
+                    imagebed_import_state = self._empty_imagebed_import_state()
+                imagebed_import_state.setdefault("version", 1)
+                imagebed_import_state.setdefault("active_import", {})
+                imagebed_import_state.setdefault("known_remote_objects", {})
+                imagebed_import_state.setdefault("last_connection", {})
+                imagebed_import_state.setdefault("last_stat", {})
+                imagebed_import_state.setdefault("last_successful_sync_at", 0)
+                imagebed_import_state.setdefault("caption_paused", True)
+                imagebed_import_state.setdefault("last_error", {})
+                if not isinstance(imagebed_discarded, dict):
+                    imagebed_discarded = self._empty_imagebed_discarded()
+                imagebed_discarded.setdefault("version", 1)
+                imagebed_discarded.setdefault("digests", {})
+                imagebed_discarded.setdefault("objects", {})
 
                 pending_prefix = f"files/{PENDING_COLLECTION_FOLDER}/"
                 file_entries = sorted(
@@ -638,13 +687,15 @@ class BackupRestoreMixin:
             "manifest": manifest,
             "config": config,
             "image_index": image_index,
-            "collection_pool": collection_pool,
-            "discarded_collection": discarded_collection,
-            "external_import_state": external_import_state,
-            "file_entries": file_entries,
-            "pending_file_entries": pending_file_entries,
-            "zip_path": str(zip_path),
-        }
+                "collection_pool": collection_pool,
+                "discarded_collection": discarded_collection,
+                "external_import_state": external_import_state,
+                "imagebed_import_state": imagebed_import_state,
+                "imagebed_discarded": imagebed_discarded,
+                "file_entries": file_entries,
+                "pending_file_entries": pending_file_entries,
+                "zip_path": str(zip_path),
+            }
 
     def _restore_backup(
         self,
@@ -685,10 +736,13 @@ class BackupRestoreMixin:
             library_mode,
         )
         self._restore_backup_external_import_state(backup, library_mode)
+        self._restore_backup_imagebed_import_state(backup, library_mode)
         self._save_index()
         self._save_collection_pool()
         self._save_discarded_collection()
         self._save_external_import_state()
+        self._save_imagebed_import_state()
+        self._save_imagebed_discarded()
 
         existing_rel_paths = self._all_existing_index_rel_paths()
         self._sync_config_image_files(existing_rel_paths)
@@ -701,6 +755,8 @@ class BackupRestoreMixin:
         self._migrate_reply_config()
         self._config_set(PROGRESS_LINK_CONFIG_KEY, PROGRESS_PAGE_CONFIG_VALUE)
         self._save_plugin_config()
+        if IMAGEBED_IMPORT_CONFIG_KEY in applied_config_keys:
+            self._restart_imagebed_sync_task()
 
         pending_count = len(self._pending_caption_rel_paths())
         self._set_caption_progress(
@@ -1056,13 +1112,101 @@ class BackupRestoreMixin:
             bool(state.get("caption_paused", True)),
         )
         warning_preferences = imported_state.get("warning_preferences")
-        if isinstance(warning_preferences, dict):
+        warning_preferences_version = self._to_int(
+            imported_state.get("warning_preferences_version"),
+            0,
+        )
+        if (
+            warning_preferences_version == 2
+            and isinstance(warning_preferences, dict)
+        ):
             state["warning_preferences"] = self._json_safe_copy(
                 warning_preferences
             )
         else:
-            state.setdefault("warning_preferences", {})
+            state["warning_preferences"] = {}
+        state["warning_preferences_version"] = 2
         state["active_import"] = {}
+
+    def _restore_backup_imagebed_import_state(
+        self,
+        backup: dict[str, Any],
+        library_mode: str,
+    ) -> None:
+        imported_state = backup.get("imagebed_import_state")
+        if not isinstance(imported_state, dict):
+            return
+        if library_mode == "overwrite":
+            self._imagebed_import_state = self._empty_imagebed_import_state()
+            self._imagebed_discarded = self._empty_imagebed_discarded()
+
+        state = self._imagebed_import_state
+        state.setdefault("version", 1)
+        state.setdefault("config", {})
+        state.setdefault("known_remote_objects", {})
+        state.setdefault("last_connection", {})
+        state.setdefault("last_stat", {})
+        state.setdefault("last_successful_sync_at", 0)
+        state.setdefault("caption_paused", True)
+        state.setdefault("last_error", {})
+
+        imported_config = imported_state.get("config", {})
+        if isinstance(imported_config, dict):
+            state["config"] = self._json_safe_copy(imported_config)
+
+        imported_known = imported_state.get("known_remote_objects", {})
+        if isinstance(imported_known, dict):
+            known = state.setdefault("known_remote_objects", {})
+            if not isinstance(known, dict):
+                known = {}
+                state["known_remote_objects"] = known
+            for marker, value in imported_known.items():
+                normalized = str(marker or "").strip()
+                if normalized:
+                    known[normalized] = self._json_safe_copy(value)
+
+        state["last_connection"] = self._json_safe_copy(
+            imported_state.get("last_connection", {})
+        )
+        state["last_stat"] = self._json_safe_copy(imported_state.get("last_stat", {}))
+        state["last_successful_sync_at"] = self._to_int(
+            imported_state.get("last_successful_sync_at"),
+            0,
+        )
+        state["caption_paused"] = self._to_bool(
+            imported_state.get("caption_paused"),
+            bool(state.get("caption_paused", True)),
+        )
+        last_error = imported_state.get("last_error", {})
+        state["last_error"] = (
+            self._json_safe_copy(last_error) if isinstance(last_error, dict) else {}
+        )
+        state["active_import"] = {}
+
+        imported_discarded = backup.get("imagebed_discarded")
+        if isinstance(imported_discarded, dict):
+            if library_mode == "overwrite":
+                self._imagebed_discarded = self._empty_imagebed_discarded()
+            digests = imported_discarded.get("digests", {})
+            if isinstance(digests, dict):
+                current_digests = self._imagebed_discarded.setdefault("digests", {})
+                if not isinstance(current_digests, dict):
+                    current_digests = {}
+                    self._imagebed_discarded["digests"] = current_digests
+                for digest, value in digests.items():
+                    normalized = str(digest or "").strip()
+                    if normalized:
+                        current_digests[normalized] = self._json_safe_copy(value)
+            objects = imported_discarded.get("objects", {})
+            if isinstance(objects, dict):
+                current_objects = self._imagebed_discarded.setdefault("objects", {})
+                if not isinstance(current_objects, dict):
+                    current_objects = {}
+                    self._imagebed_discarded["objects"] = current_objects
+                for marker, value in objects.items():
+                    normalized = str(marker or "").strip()
+                    if normalized:
+                        current_objects[normalized] = self._json_safe_copy(value)
 
     def _imported_collection_pool_item(
         self,
@@ -1219,6 +1363,26 @@ class BackupRestoreMixin:
                 backup_item.get("external_imported_at"),
                 0,
             ),
+            "imagebed_object_key": str(backup_item.get("imagebed_object_key") or ""),
+            "imagebed_object_etag": str(backup_item.get("imagebed_object_etag") or ""),
+            "imagebed_object_size": self._to_int(
+                backup_item.get("imagebed_object_size"),
+                0,
+            ),
+            "imagebed_object_last_modified": str(
+                backup_item.get("imagebed_object_last_modified") or ""
+            ),
+            "imagebed_object_marker": str(
+                backup_item.get("imagebed_object_marker") or ""
+            ),
+            "imagebed_imported_at": self._to_int(
+                backup_item.get("imagebed_imported_at"),
+                0,
+            ),
+            "imagebed_finalized_at": self._to_int(
+                backup_item.get("imagebed_finalized_at"),
+                0,
+            ),
         }
 
     def _apply_imported_config(self, config: dict[str, Any]) -> list[str]:
@@ -1257,6 +1421,14 @@ class BackupRestoreMixin:
                 continue
             if key == DEFAULT_CAPTION_PROVIDER_CONFIG_KEY:
                 self._set_plugin_default_image_caption_provider_id(value)
+                applied_keys.append(key)
+                continue
+            if key == IMAGEBED_IMPORT_CONFIG_KEY:
+                self._set_imagebed_import_config(
+                    value,
+                    save_plugin_config=False,
+                    save_state=False,
+                )
                 applied_keys.append(key)
                 continue
             if key == PROACTIVE_EMOJI_CONFIG_KEY:
@@ -1417,6 +1589,8 @@ class BackupRestoreMixin:
             folders.append(PENDING_COLLECTION_FOLDER)
         folders.append(COLLECTED_COLLECTION_FOLDER)
         folders.append(EXTERNAL_IMPORT_FOLDER)
+        folders.append(IMAGEBED_IMPORT_PENDING_FOLDER)
+        folders.append(IMAGEBED_IMPORT_LIBRARY_FOLDER)
         for folder in folders:
             root = self.data_dir / "files" / folder
             if not root.is_dir():
@@ -1463,6 +1637,7 @@ class BackupRestoreMixin:
                 MANUAL_LIBRARY_SOURCE,
                 COLLECTED_LIBRARY_SOURCE,
                 EXTERNAL_LIBRARY_SOURCE,
+                IMAGEBED_LIBRARY_SOURCE,
             }:
                 return source
         normalized = self._norm_rel_path(rel_path)
@@ -1470,6 +1645,10 @@ class BackupRestoreMixin:
             return COLLECTED_LIBRARY_SOURCE
         if normalized.startswith(f"files/{EXTERNAL_IMPORT_FOLDER}/"):
             return EXTERNAL_LIBRARY_SOURCE
+        if normalized.startswith(f"files/{IMAGEBED_IMPORT_PENDING_FOLDER}/"):
+            return IMAGEBED_LIBRARY_SOURCE
+        if normalized.startswith(f"files/{IMAGEBED_IMPORT_LIBRARY_FOLDER}/"):
+            return IMAGEBED_LIBRARY_SOURCE
         return MANUAL_LIBRARY_SOURCE
 
     def _source_image_count(self, source: str) -> int:

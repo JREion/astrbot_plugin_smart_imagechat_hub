@@ -21,6 +21,7 @@ const els = {
   autoCollectionButton: document.getElementById("autoCollectionButton"),
   memeCombatButton: document.getElementById("memeCombatButton"),
   externalImportButton: document.getElementById("externalImportButton"),
+  imagebedImportButton: document.getElementById("imagebedImportButton"),
   importButton: document.getElementById("importButton"),
   exportButton: document.getElementById("exportButton"),
   uploadInput: document.getElementById("uploadInput"),
@@ -61,9 +62,13 @@ const els = {
   externalImportScopeButton: document.getElementById(
     "externalImportScopeButton",
   ),
+  imagebedImportScopeButton: document.getElementById(
+    "imagebedImportScopeButton",
+  ),
   manualLibraryScope: document.getElementById("manualLibraryScope"),
   autoCollectionScope: document.getElementById("autoCollectionScope"),
   externalImportScope: document.getElementById("externalImportScope"),
+  imagebedImportScope: document.getElementById("imagebedImportScope"),
   libraryScopeSwitchRow: document.getElementById("libraryScopeSwitchRow"),
   libraryMeta: document.getElementById("libraryMeta"),
   libraryListModeButton: document.getElementById("libraryListModeButton"),
@@ -135,6 +140,76 @@ const els = {
   ),
   externalLibraryList: document.getElementById("externalLibraryList"),
   emptyExternalLibraryText: document.getElementById("emptyExternalLibraryText"),
+  imagebedImportPendingMeta: document.getElementById(
+    "imagebedImportPendingMeta",
+  ),
+  imagebedImportSelectAllButton: document.getElementById(
+    "imagebedImportSelectAllButton",
+  ),
+  imagebedImportDeletePendingButton: document.getElementById(
+    "imagebedImportDeletePendingButton",
+  ),
+  imagebedImportPauseButton: document.getElementById(
+    "imagebedImportPauseButton",
+  ),
+  imagebedImportCancelCaptionButton: document.getElementById(
+    "imagebedImportCancelCaptionButton",
+  ),
+  imagebedImportPendingList: document.getElementById(
+    "imagebedImportPendingList",
+  ),
+  emptyImagebedImportPendingText: document.getElementById(
+    "emptyImagebedImportPendingText",
+  ),
+  imagebedImportDialogMessage: document.getElementById(
+    "imagebedImportDialogMessage",
+  ),
+  imagebedLibraryMeta: document.getElementById("imagebedLibraryMeta"),
+  imagebedLibraryImportButton: document.getElementById(
+    "imagebedLibraryImportButton",
+  ),
+  imagebedListModeButton: document.getElementById("imagebedListModeButton"),
+  imagebedGalleryModeButton: document.getElementById(
+    "imagebedGalleryModeButton",
+  ),
+  imagebedLibraryTagSearchInput: document.getElementById(
+    "imagebedLibraryTagSearchInput",
+  ),
+  imagebedLibraryTagSearchClearButton: document.getElementById(
+    "imagebedLibraryTagSearchClearButton",
+  ),
+  imagebedLibraryList: document.getElementById("imagebedLibraryList"),
+  emptyImagebedLibraryText: document.getElementById("emptyImagebedLibraryText"),
+  imagebedImportOverlay: document.getElementById("imagebedImportOverlay"),
+  imagebedImportTestButton: document.getElementById("imagebedImportTestButton"),
+  imagebedImportSaveButton: document.getElementById("imagebedImportSaveButton"),
+  imagebedImportCancelButton: document.getElementById(
+    "imagebedImportCancelButton",
+  ),
+  imagebedConnectionStatus: document.getElementById("imagebedConnectionStatus"),
+  imagebedLastSyncAt: document.getElementById("imagebedLastSyncAt"),
+  imagebedUnsyncedCount: document.getElementById("imagebedUnsyncedCount"),
+  imagebedAccountIdInput: document.getElementById("imagebedAccountIdInput"),
+  imagebedAccessKeyIdInput: document.getElementById("imagebedAccessKeyIdInput"),
+  imagebedSecretAccessKeyInput: document.getElementById(
+    "imagebedSecretAccessKeyInput",
+  ),
+  imagebedBucketNameInput: document.getElementById("imagebedBucketNameInput"),
+  imagebedEndpointUrlInput: document.getElementById("imagebedEndpointUrlInput"),
+  imagebedPrefixInput: document.getElementById("imagebedPrefixInput"),
+  imagebedMaxFileSizeKbInput: document.getElementById(
+    "imagebedMaxFileSizeKbInput",
+  ),
+  imagebedScheduledEnabledInput: document.getElementById(
+    "imagebedScheduledEnabledInput",
+  ),
+  imagebedScheduledTimeInput: document.getElementById(
+    "imagebedScheduledTimeInput",
+  ),
+  imagebedImportMessage: document.getElementById("imagebedImportMessage"),
+  imagebedImportStartButton: document.getElementById(
+    "imagebedImportStartButton",
+  ),
   editorOverlay: document.getElementById("editorOverlay"),
   editorTitle: document.getElementById("editorTitle"),
   editorImage: document.getElementById("editorImage"),
@@ -346,25 +421,51 @@ const els = {
   externalImportWarningCloseButton: document.getElementById(
     "externalImportWarningCloseButton",
   ),
+  imagebedImportWarningOverlay: document.getElementById(
+    "imagebedImportWarningOverlay",
+  ),
+  imagebedImportWarningTitle: document.getElementById(
+    "imagebedImportWarningTitle",
+  ),
+  imagebedImportWarningText: document.getElementById(
+    "imagebedImportWarningText",
+  ),
+  imagebedImportWarningDontShowInput: document.getElementById(
+    "imagebedImportWarningDontShowInput",
+  ),
+  imagebedImportWarningConfirmButton: document.getElementById(
+    "imagebedImportWarningConfirmButton",
+  ),
+  imagebedImportWarningCancelButton: document.getElementById(
+    "imagebedImportWarningCancelButton",
+  ),
+  imagebedImportWarningCloseButton: document.getElementById(
+    "imagebedImportWarningCloseButton",
+  ),
   captionErrorOverlay: document.getElementById("captionErrorOverlay"),
   captionErrorCloseButton: document.getElementById("captionErrorCloseButton"),
   captionErrorOkButton: document.getElementById("captionErrorOkButton"),
   captionErrorMessage: document.getElementById("captionErrorMessage"),
   captionErrorDetailText: document.getElementById("captionErrorDetailText"),
+  captionErrorEyebrow: document.getElementById("captionErrorEyebrow"),
+  captionErrorTitle: document.getElementById("captionErrorTitle"),
 };
 
 const pluginApiBase = "/api/plug/astrbot_plugin_smart_imagechat_hub";
-const PLUGIN_VERSION = "v2.6.1";
+const PLUGIN_VERSION = "v2.8.0";
 let bridge = window.AstrBotPluginPage || null;
 let bridgeReady = false;
 let bridgeUnavailable = false;
 let libraryImages = [];
 let solidifiedLibraryImages = [];
 let externalLibraryImages = [];
+let imagebedLibraryImages = [];
 let pendingPoolImages = [];
 let externalImportPendingImages = [];
+let imagebedImportPendingImages = [];
 let selectedPendingImageIds = new Set();
 let selectedExternalPendingImageIds = new Set();
+let selectedImagebedPendingImageIds = new Set();
 let globalTags = [];
 let editingImage = null;
 let globalTagsDirty = false;
@@ -377,38 +478,54 @@ let providerWarningContinueAction = null;
 let libraryViewMode = "list";
 let solidifiedLibraryViewMode = "list";
 let externalLibraryViewMode = "list";
+let imagebedLibraryViewMode = "list";
 let pageDefaultLibraryViewModeApplied = false;
 let libraryScopeMode = "manual";
 let libraryTagSearchText = "";
 let solidifiedLibraryTagSearchText = "";
 let externalLibraryTagSearchText = "";
+let imagebedLibraryTagSearchText = "";
 let selectedGalleryImageId = "";
 let selectedSolidifiedGalleryImageId = "";
 let selectedExternalGalleryImageId = "";
+let selectedImagebedGalleryImageId = "";
 let libraryRenderResizeTimer = 0;
 let solidifiedLibraryRenderResizeTimer = 0;
 let externalLibraryRenderResizeTimer = 0;
+let imagebedLibraryRenderResizeTimer = 0;
 let lastLibraryListWidth = 0;
 let lastSolidifiedLibraryListWidth = 0;
 let lastExternalLibraryListWidth = 0;
+let lastImagebedLibraryListWidth = 0;
 let pageScrollIdleTimer = 0;
 let isPageScrolling = false;
 let pendingLibraryRender = new Set();
 let renderedLibrarySignature = "";
 let renderedPendingPoolSignature = "";
 let renderedExternalPendingSignature = "";
+let renderedImagebedPendingSignature = "";
 let lastExternalImportRunning = false;
 let lastExternalImportDialogBlocked = false;
+let lastImagebedImportRunning = false;
+let lastImagebedImportDialogBlocked = false;
 let externalCaptionPaused = false;
+let imagebedCaptionPaused = false;
 const skippedExternalImportWarnings = new Set();
+const skippedImagebedImportWarnings = new Set();
 let pendingCapacityActionImageIds = [];
 let selectedExternalImportDirectory = "";
 let externalImportDirectoryStat = null;
+let imagebedImportStatusCache = null;
+let imagebedImportConnectionVerified = false;
 let expandedExternalImportDirectories = new Set();
 let currentExternalImportTree = null;
 let pendingExternalImportWarningAction = null;
+let pendingImagebedImportWarningAction = null;
 let lastCaptionErrorSignature = "";
 let dismissedCaptionErrorSignature = "";
+let lastImagebedErrorSignature = "";
+let dismissedImagebedErrorSignature = "";
+let activeFailureDialog = null;
 let scheduledBackupState = {
   enabled: true,
   backup_time: "06:00",
@@ -458,6 +575,7 @@ const imageLoadObserver =
 const MANUAL_LIBRARY_SOURCE = "manual_upload";
 const SOLIDIFIED_LIBRARY_SOURCE = "auto_collected";
 const EXTERNAL_LIBRARY_SOURCE = "external_imported";
+const IMAGEBED_LIBRARY_SOURCE = "imagebed_imported";
 
 const LIBRARY_MODE_ICONS = {
   list:
@@ -481,6 +599,8 @@ const SCOPE_MODE_ICONS = {
     '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="2.2" y="11.2" width="9.6" height="2" rx="1" transform="rotate(-45 2.2 11.2)"/><path d="M10.7 1.8l.7 1.7 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.7z"/><path d="M13.1 8.1l.4 1 .9.4-.9.4-.4 1-.4-1-.9-.4.9-.4.4-1z"/><path d="M4.2 3.2l.4 1 .9.4-.9.4-.4 1-.4-1-.9-.4.9-.4.4-1z"/></svg>',
   external:
     '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M2.2 3.4c0-.8.6-1.4 1.4-1.4h3l1.2 1.4h4.6c.8 0 1.4.6 1.4 1.4v.8H2.2V3.4z"/><path d="M2.2 6.2h11.6v5.7c0 .8-.6 1.4-1.4 1.4H3.6c-.8 0-1.4-.6-1.4-1.4V6.2zm6.2 1.1H6.8v1.8H5l3 3 3-3H9.4V7.3z"/></svg>',
+  imagebed:
+    '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 2.3a1 1 0 0 0-1 1v9.4a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6.7L9.5 2.3H4zm4.7 1.2 2.6 2.6H8.7V3.5z"/><path d="M5 11.2 6.9 8.8l1.7 2.1 1.3-1.6 1.8 1.9H5z"/></svg>',
 };
 
 const UP_ARROW_ICON =
@@ -492,12 +612,15 @@ const PENDING_SELECTION_ICON =
 els.manualLibraryScopeButton.innerHTML = `${SCOPE_MODE_ICONS.manual}<span>手动上传的图库</span>`;
 els.autoCollectionScopeButton.innerHTML = `${SCOPE_MODE_ICONS.auto}<span>自动收集的图库</span>`;
 els.externalImportScopeButton.innerHTML = `${SCOPE_MODE_ICONS.external}<span>其他插件的图库</span>`;
+els.imagebedImportScopeButton.innerHTML = `${SCOPE_MODE_ICONS.imagebed}<span>图床同步的图库</span>`;
 els.libraryListModeButton.innerHTML = LIBRARY_MODE_ICONS.list;
 els.libraryGalleryModeButton.innerHTML = LIBRARY_MODE_ICONS.gallery;
 els.solidifiedListModeButton.innerHTML = LIBRARY_MODE_ICONS.list;
 els.solidifiedGalleryModeButton.innerHTML = LIBRARY_MODE_ICONS.gallery;
 els.externalListModeButton.innerHTML = LIBRARY_MODE_ICONS.list;
 els.externalGalleryModeButton.innerHTML = LIBRARY_MODE_ICONS.gallery;
+els.imagebedListModeButton.innerHTML = LIBRARY_MODE_ICONS.list;
+els.imagebedGalleryModeButton.innerHTML = LIBRARY_MODE_ICONS.gallery;
 els.solidifiedBackToScopeButton.innerHTML = UP_ARROW_ICON;
 for (const icon of document.querySelectorAll(".library-search-icon")) {
   icon.innerHTML = SEARCH_ICON;
@@ -1157,13 +1280,59 @@ function captionErrorSignature(progress) {
   ].join("|");
 }
 
+function imagebedImportErrorSignature(error) {
+  return [
+    String(error?.id || ""),
+    String(error?.trigger || ""),
+    String(error?.detail || error?.message || ""),
+    String(error?.occurred_at || ""),
+  ].join("|");
+}
+
+function isImagebedImportConfigDialogOpen() {
+  return Boolean(
+    els.imagebedImportOverlay &&
+      !els.imagebedImportOverlay.classList.contains("is-hidden"),
+  );
+}
+
+function openFailureErrorDialog(kind, options = {}) {
+  if (!els.captionErrorOverlay) {
+    return;
+  }
+  activeFailureDialog = {
+    kind,
+    signature: String(options.signature || ""),
+    errorId: String(options.errorId || ""),
+  };
+  if (els.captionErrorEyebrow) {
+    els.captionErrorEyebrow.textContent =
+      kind === "imagebed" ? "图床同步错误" : "自动标签错误";
+  }
+  if (els.captionErrorTitle) {
+    els.captionErrorTitle.textContent =
+      kind === "imagebed" ? "图床同步失败" : "自动标签进程失败";
+  }
+  els.captionErrorMessage.textContent = String(
+    options.message || "任务执行失败。",
+  );
+  if (els.captionErrorDetailText) {
+    els.captionErrorDetailText.textContent = String(options.detail || "");
+  }
+  els.captionErrorOverlay.classList.remove("is-hidden");
+}
+
 function maybeOpenCaptionErrorDialog(progress) {
   if (
+    isImagebedImportConfigDialogOpen() ||
     !els.captionErrorOverlay ||
     progress?.status !== "failed" ||
     (!progress?.error_detail && !progress?.error_message)
   ) {
-    return;
+    return false;
+  }
+  if (activeFailureDialog && !els.captionErrorOverlay.classList.contains("is-hidden")) {
+    return false;
   }
   const signature = captionErrorSignature(progress);
   if (
@@ -1171,21 +1340,69 @@ function maybeOpenCaptionErrorDialog(progress) {
     signature === lastCaptionErrorSignature ||
     signature === dismissedCaptionErrorSignature
   ) {
-    return;
+    return false;
   }
   lastCaptionErrorSignature = signature;
-  els.captionErrorMessage.textContent =
-    progress.error_message || progress.message || "自动标签进程失败。";
-  if (els.captionErrorDetailText) {
-    els.captionErrorDetailText.textContent = String(
+  openFailureErrorDialog("caption", {
+    signature,
+    message: progress.error_message || progress.message || "自动标签进程失败。",
+    detail:
       progress.error_detail || progress.error_message || progress.message || "",
-    );
-  }
-  els.captionErrorOverlay.classList.remove("is-hidden");
+  });
+  return true;
 }
 
-function closeCaptionErrorDialog() {
-  dismissedCaptionErrorSignature = lastCaptionErrorSignature;
+function maybeOpenImagebedImportErrorDialog(status) {
+  if (isImagebedImportConfigDialogOpen() || !els.captionErrorOverlay) {
+    return false;
+  }
+  if (activeFailureDialog && !els.captionErrorOverlay.classList.contains("is-hidden")) {
+    return false;
+  }
+  const lastError = status?.last_error || {};
+  if (
+    !lastError ||
+    !lastError.id ||
+    lastError.acknowledged ||
+    (!lastError.detail && !lastError.message)
+  ) {
+    return false;
+  }
+  const signature = imagebedImportErrorSignature(lastError);
+  if (
+    !signature ||
+    signature === lastImagebedErrorSignature ||
+    signature === dismissedImagebedErrorSignature
+  ) {
+    return false;
+  }
+  lastImagebedErrorSignature = signature;
+  openFailureErrorDialog("imagebed", {
+    signature,
+    errorId: String(lastError.id || ""),
+    message: lastError.message || "图床同步失败。",
+    detail: lastError.detail || lastError.message || "图床同步失败。",
+  });
+  return true;
+}
+
+async function closeCaptionErrorDialog() {
+  const dialog = activeFailureDialog;
+  activeFailureDialog = null;
+  if (dialog?.kind === "imagebed") {
+    dismissedImagebedErrorSignature = dialog.signature;
+    if (dialog.errorId) {
+      try {
+        await pluginApiPost("imagebed_import_ack_error", {
+          error_id: dialog.errorId,
+        });
+      } catch (error) {
+        // Best effort: the dialog is already dismissed for this session.
+      }
+    }
+  } else {
+    dismissedCaptionErrorSignature = lastCaptionErrorSignature;
+  }
   if (!els.captionErrorOverlay) {
     return;
   }
@@ -1220,35 +1437,58 @@ function renderProgress(progress) {
   if (progress?.external_import) {
     renderExternalImportStatus(progress.external_import);
   }
-  maybeOpenCaptionErrorDialog(progress);
+  if (progress?.imagebed_import) {
+    renderImagebedImportStatus(progress.imagebed_import);
+  }
+  const imagebedErrorOpened = maybeOpenImagebedImportErrorDialog(
+    progress?.imagebed_import || {},
+  );
+  if (!imagebedErrorOpened) {
+    maybeOpenCaptionErrorDialog(progress);
+  }
 }
 
 function updateLibraryScopeVisibility() {
   const autoMode = libraryScopeMode === "auto";
   const externalMode = libraryScopeMode === "external";
-  els.manualLibraryScope.classList.toggle("is-hidden", autoMode || externalMode);
+  const imagebedMode = libraryScopeMode === "imagebed";
+  els.manualLibraryScope.classList.toggle(
+    "is-hidden",
+    autoMode || externalMode || imagebedMode,
+  );
   els.autoCollectionScope.classList.toggle("is-hidden", !autoMode);
   els.externalImportScope.classList.toggle("is-hidden", !externalMode);
+  els.imagebedImportScope.classList.toggle("is-hidden", !imagebedMode);
   els.manualLibraryScopeButton.setAttribute(
     "aria-pressed",
-    String(!autoMode && !externalMode),
+    String(!autoMode && !externalMode && !imagebedMode),
   );
   els.autoCollectionScopeButton.setAttribute("aria-pressed", String(autoMode));
   els.externalImportScopeButton.setAttribute(
     "aria-pressed",
     String(externalMode),
   );
+  els.imagebedImportScopeButton.setAttribute(
+    "aria-pressed",
+    String(imagebedMode),
+  );
 }
 
 function setLibraryScopeMode(mode) {
-  const nextMode =
-    mode === "auto" ? "auto" : mode === "external" ? "external" : "manual";
-  if (libraryScopeMode === nextMode) {
+  const normalizedMode =
+    mode === "imagebed"
+      ? "imagebed"
+      : mode === "auto"
+        ? "auto"
+        : mode === "external"
+          ? "external"
+          : "manual";
+  if (libraryScopeMode === normalizedMode) {
     updateLibraryScopeVisibility();
     return;
   }
   const position = captureScrollPosition();
-  libraryScopeMode = nextMode;
+  libraryScopeMode = normalizedMode;
   updateLibraryScopeVisibility();
   restoreScrollPosition(position);
 }
@@ -1280,6 +1520,40 @@ function tagChip(tag) {
 }
 
 function getLibraryState(source = MANUAL_LIBRARY_SOURCE) {
+  if (source === IMAGEBED_LIBRARY_SOURCE) {
+    return {
+      source: IMAGEBED_LIBRARY_SOURCE,
+      images: imagebedLibraryImages,
+      list: els.imagebedLibraryList,
+      meta: els.imagebedLibraryMeta,
+      empty: els.emptyImagebedLibraryText,
+      listModeButton: els.imagebedListModeButton,
+      galleryModeButton: els.imagebedGalleryModeButton,
+      getViewMode: () => imagebedLibraryViewMode,
+      setViewModeValue: (mode) => {
+        imagebedLibraryViewMode = mode;
+      },
+      getSearchText: () => imagebedLibraryTagSearchText,
+      setSearchText: (text) => {
+        imagebedLibraryTagSearchText = text;
+      },
+      searchInput: els.imagebedLibraryTagSearchInput,
+      searchClearButton: els.imagebedLibraryTagSearchClearButton,
+      searchRow: els.imagebedLibraryTagSearchInput.closest(".library-search-row"),
+      getSelectedId: () => selectedImagebedGalleryImageId,
+      setSelectedId: (imageId) => {
+        selectedImagebedGalleryImageId = imageId;
+      },
+      getLastWidth: () => lastImagebedLibraryListWidth,
+      setLastWidth: (width) => {
+        lastImagebedLibraryListWidth = width;
+      },
+      getResizeTimer: () => imagebedLibraryRenderResizeTimer,
+      setResizeTimer: (timer) => {
+        imagebedLibraryRenderResizeTimer = timer;
+      },
+    };
+  }
   if (source === EXTERNAL_LIBRARY_SOURCE) {
     return {
       source: EXTERNAL_LIBRARY_SOURCE,
@@ -1490,6 +1764,7 @@ function applyDefaultLibraryViewMode(mode, force = false) {
   libraryViewMode = nextMode;
   solidifiedLibraryViewMode = nextMode;
   externalLibraryViewMode = nextMode;
+  imagebedLibraryViewMode = nextMode;
   pageDefaultLibraryViewModeApplied = true;
 }
 
@@ -1808,6 +2083,8 @@ function renderLibrary(source = MANUAL_LIBRARY_SOURCE) {
   updateLibrarySearchControls(source);
   if (source === SOLIDIFIED_LIBRARY_SOURCE) {
     renderSolidifiedLibraryCount();
+  } else if (source === IMAGEBED_LIBRARY_SOURCE) {
+    state.meta.textContent = `${state.images.length} 张`;
   } else if (source === EXTERNAL_LIBRARY_SOURCE) {
     state.meta.textContent = `${state.images.length} 张`;
   } else {
@@ -1819,6 +2096,8 @@ function renderLibrary(source = MANUAL_LIBRARY_SOURCE) {
       ? "没有找到含有该标签的图片。"
       : source === SOLIDIFIED_LIBRARY_SOURCE
         ? "暂无已完成标签生成的固化图像。"
+        : source === IMAGEBED_LIBRARY_SOURCE
+          ? "暂无从图床同步并完成打标签的图像。"
         : source === EXTERNAL_LIBRARY_SOURCE
           ? "暂无已完成标签生成的外部插件图像。"
           : "暂无已经生成特征标签的图像。";
@@ -1891,6 +2170,7 @@ function pendingPoolSignature(images) {
         String(image?.mtime || ""),
         String(image?.size || ""),
         String(image?.collected_at || image?.external_imported_at || ""),
+        String(image?.imagebed_imported_at || ""),
         String(image?.caption_status || ""),
       ].join("|"),
     )
@@ -1921,6 +2201,9 @@ function applyLibraryState(library, options = {}) {
   const nextExternalImages = Array.isArray(library?.external_images)
     ? library.external_images
     : [];
+  const nextImagebedImages = Array.isArray(library?.imagebed_images)
+    ? library.imagebed_images
+    : [];
   const nextGlobalTags = Array.isArray(library?.global_tags)
     ? library.global_tags
     : [];
@@ -1930,6 +2213,8 @@ function applyLibraryState(library, options = {}) {
     librarySignature(nextSolidifiedImages, nextGlobalTags),
     "::external::",
     librarySignature(nextExternalImages, nextGlobalTags),
+    "::imagebed::",
+    librarySignature(nextImagebedImages, nextGlobalTags),
   ].join("\n");
   const force = options.force === true;
   const changed = force || nextSignature !== renderedLibrarySignature;
@@ -1937,10 +2222,12 @@ function applyLibraryState(library, options = {}) {
   libraryImages = nextImages;
   solidifiedLibraryImages = nextSolidifiedImages;
   externalLibraryImages = nextExternalImages;
+  imagebedLibraryImages = nextImagebedImages;
   globalTags = nextGlobalTags;
   syncSelectedGalleryImage(MANUAL_LIBRARY_SOURCE);
   syncSelectedGalleryImage(SOLIDIFIED_LIBRARY_SOURCE);
   syncSelectedGalleryImage(EXTERNAL_LIBRARY_SOURCE);
+  syncSelectedGalleryImage(IMAGEBED_LIBRARY_SOURCE);
 
   if (!changed) {
     return false;
@@ -1952,10 +2239,12 @@ function applyLibraryState(library, options = {}) {
     deferLibraryRenderUntilScrollIdle(MANUAL_LIBRARY_SOURCE);
     deferLibraryRenderUntilScrollIdle(SOLIDIFIED_LIBRARY_SOURCE);
     deferLibraryRenderUntilScrollIdle(EXTERNAL_LIBRARY_SOURCE);
+    deferLibraryRenderUntilScrollIdle(IMAGEBED_LIBRARY_SOURCE);
   } else {
     renderLibraryPreservingScroll(MANUAL_LIBRARY_SOURCE);
     renderLibraryPreservingScroll(SOLIDIFIED_LIBRARY_SOURCE);
     renderLibraryPreservingScroll(EXTERNAL_LIBRARY_SOURCE);
+    renderLibraryPreservingScroll(IMAGEBED_LIBRARY_SOURCE);
   }
   return true;
 }
@@ -2105,6 +2394,289 @@ function toggleAllExternalPendingSelection() {
     );
   }
   syncExternalPendingSelectionView();
+}
+
+function imagebedPendingImageSignature(image) {
+  return [
+    String(image?.id || ""),
+    String(image?.rel_path || ""),
+    String(image?.mtime || ""),
+    String(image?.size || ""),
+    String(image?.imagebed_imported_at || ""),
+    String(image?.caption_status || ""),
+  ].join("|");
+}
+
+function applyImagebedPendingState(pending, options = {}) {
+  const nextImages = Array.isArray(pending?.images) ? pending.images : [];
+  const nextSignature = pendingPoolSignature(nextImages);
+  const force = options.force === true;
+  const changed = force || nextSignature !== renderedImagebedPendingSignature;
+
+  imagebedImportPendingImages = nextImages;
+  const existingIds = new Set(nextImages.map((image) => String(image?.id || "")));
+  selectedImagebedPendingImageIds = new Set(
+    Array.from(selectedImagebedPendingImageIds).filter((imageId) =>
+      existingIds.has(imageId),
+    ),
+  );
+
+  if (!changed) {
+    syncImagebedPendingSelectionView();
+    return false;
+  }
+
+  renderedImagebedPendingSignature = nextSignature;
+  const position = captureScrollPosition();
+  renderImagebedPendingPool({ force });
+  restoreScrollPosition(position);
+  return true;
+}
+
+function syncImagebedPendingSelectionView() {
+  const cards = Array.from(
+    els.imagebedImportPendingList.querySelectorAll(".pending-card"),
+  );
+  for (const card of cards) {
+    const imageId = String(card.dataset.pendingImageId || "").trim();
+    const selected = selectedImagebedPendingImageIds.has(imageId);
+    card.classList.toggle("is-selected", selected);
+    const checkbox = card.querySelector("input[type='checkbox']");
+    if (checkbox) {
+      checkbox.checked = selected;
+    }
+  }
+  const selectedCount = selectedImagebedPendingImageIds.size;
+  els.imagebedImportDeletePendingButton.disabled = selectedCount === 0;
+  els.imagebedImportCancelCaptionButton.disabled =
+    imagebedImportPendingImages.length === 0;
+  if (!imagebedImportPendingImages.length || lastImagebedImportRunning) {
+    els.imagebedImportPauseButton.disabled = true;
+  }
+  els.imagebedImportSelectAllButton.textContent =
+    imagebedImportPendingImages.length &&
+    selectedCount === imagebedImportPendingImages.length
+      ? "取消全选"
+      : "全选";
+}
+
+function toggleImagebedPendingSelection(imageId) {
+  const normalizedId = String(imageId || "").trim();
+  if (!normalizedId) {
+    return;
+  }
+  if (selectedImagebedPendingImageIds.has(normalizedId)) {
+    selectedImagebedPendingImageIds.delete(normalizedId);
+  } else {
+    selectedImagebedPendingImageIds.add(normalizedId);
+  }
+  syncImagebedPendingSelectionView();
+}
+
+function toggleAllImagebedPendingSelection() {
+  if (!imagebedImportPendingImages.length) {
+    return;
+  }
+  if (
+    selectedImagebedPendingImageIds.size === imagebedImportPendingImages.length
+  ) {
+    selectedImagebedPendingImageIds.clear();
+  } else {
+    selectedImagebedPendingImageIds = new Set(
+      imagebedImportPendingImages
+        .map((image) => String(image?.id || ""))
+        .filter(Boolean),
+    );
+  }
+  syncImagebedPendingSelectionView();
+}
+
+function renderImagebedPendingPool(options = {}) {
+  if (options.force === true) {
+    els.imagebedImportPendingList.replaceChildren();
+  } else {
+    els.imagebedImportPendingList.replaceChildren();
+  }
+  els.imagebedImportPendingMeta.textContent = `${imagebedImportPendingImages.length} 张`;
+  els.emptyImagebedImportPendingText.classList.toggle(
+    "is-hidden",
+    imagebedImportPendingImages.length > 0,
+  );
+
+  for (const image of imagebedImportPendingImages) {
+    const imageId = String(image?.id || "").trim();
+    if (!imageId) {
+      continue;
+    }
+    const card = document.createElement("label");
+    card.className = "pending-card";
+    card.dataset.pendingImageId = imageId;
+    card.dataset.pendingSignature = imagebedPendingImageSignature(image);
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = selectedImagebedPendingImageIds.has(imageId);
+    checkbox.addEventListener("change", (event) => {
+      event.stopPropagation();
+      toggleImagebedPendingSelection(imageId);
+    });
+
+    const thumb = document.createElement("img");
+    thumb.className = "pending-thumb";
+    thumb.alt = image.filename || image.rel_path || "图床待打标签图像";
+    thumb.loading = "lazy";
+    thumb.decoding = "async";
+    applyResolvedImageUrl(thumb, image);
+
+    const selectedOverlay = document.createElement("span");
+    selectedOverlay.className = "pending-selected-overlay";
+    selectedOverlay.innerHTML = PENDING_SELECTION_ICON;
+    selectedOverlay.setAttribute("aria-hidden", "true");
+
+    const thumbWrap = document.createElement("div");
+    thumbWrap.className = "pending-thumb-wrap";
+    thumbWrap.append(thumb, selectedOverlay);
+
+    const meta = document.createElement("div");
+    meta.className = "pending-card-meta";
+    const time = document.createElement("div");
+    time.className = "pending-card-title pending-card-time";
+    time.textContent = formatPendingCollectionTime(
+      image.imagebed_imported_at || image.updated_at,
+    );
+    const details = document.createElement("div");
+    details.className = "pending-card-details";
+    details.textContent = image.caption_status || "pending";
+    meta.append(time, details);
+
+    card.append(checkbox, thumbWrap, meta);
+    card.addEventListener("click", (event) => {
+      if (event.target !== checkbox) {
+        event.preventDefault();
+        toggleImagebedPendingSelection(imageId);
+      }
+    });
+    els.imagebedImportPendingList.appendChild(card);
+  }
+
+  syncImagebedPendingSelectionView();
+}
+
+function imagebedImportDialogBlockState(status) {
+  const active = status?.active_import || {};
+  const importRunning = String(active?.status || "") === "running";
+  const pendingCount = asInt(status?.pending_count ?? active?.pending_count);
+  const captionActive =
+    Boolean(status?.caption_active) ||
+    (!Boolean(status?.caption_paused) && pendingCount > 0);
+  return {
+    blocked: importRunning || captionActive,
+    importRunning,
+    captionActive,
+    pendingCount,
+  };
+}
+
+function renderImagebedImportDialogStatus(status) {
+  const snapshot = status || imagebedImportStatusCache || {};
+  imagebedImportStatusCache = snapshot;
+  const connection = snapshot?.last_connection || {};
+  const stat = snapshot?.last_stat || {};
+  if (els.imagebedConnectionStatus) {
+    if (connection.connected) {
+      els.imagebedConnectionStatus.textContent = "已连接";
+    } else {
+      els.imagebedConnectionStatus.textContent = connection.message || "未连接";
+    }
+  }
+  if (els.imagebedLastSyncAt) {
+    els.imagebedLastSyncAt.textContent = formatTime(
+      snapshot?.last_successful_sync_at,
+    );
+  }
+  if (els.imagebedUnsyncedCount) {
+    const hasUnsynced =
+      stat && Object.prototype.hasOwnProperty.call(stat, "unsynced_count");
+    els.imagebedUnsyncedCount.textContent = hasUnsynced
+      ? String(asInt(stat.unsynced_count))
+      : "-";
+  }
+
+  const blockState = imagebedImportDialogBlockState(snapshot);
+  lastImagebedImportRunning = blockState.importRunning;
+  lastImagebedImportDialogBlocked = blockState.blocked;
+  const connectionReady =
+    Boolean(connection.connected) && imagebedImportConnectionVerified;
+  const canStartCaptioning =
+    imagebedCaptionPaused && !blockState.importRunning && blockState.pendingCount > 0;
+  if (els.imagebedImportPauseButton) {
+    els.imagebedImportPauseButton.textContent = blockState.blocked
+      ? "请稍候"
+      : "开始";
+    els.imagebedImportPauseButton.disabled = !canStartCaptioning;
+    els.imagebedImportPauseButton.classList.toggle(
+      "primary-action",
+      canStartCaptioning,
+    );
+    els.imagebedImportPauseButton.classList.toggle(
+      "secondary",
+      !canStartCaptioning,
+    );
+  }
+  if (els.imagebedImportStartButton) {
+    els.imagebedImportStartButton.disabled =
+      blockState.blocked || !connectionReady;
+  }
+}
+
+function renderImagebedImportStatus(status) {
+  const active = status?.active_import || {};
+  const stat = status?.last_stat || {};
+  imagebedCaptionPaused = Boolean(status?.caption_paused);
+  renderImagebedImportDialogStatus(status);
+
+  const isImportRunning = String(active?.status || "") === "running";
+  const pendingCount = asInt(status?.pending_count);
+  if (isImportRunning) {
+    els.imagebedImportMessage.textContent =
+      `正在导入：已扫描 ${asInt(active.scanned)} 张，复制 ${asInt(active.copied)} 张，` +
+      `跳过重复 ${asInt(active.skipped_duplicates)} 张。`;
+    return;
+  }
+  if (active?.status === "done") {
+    els.imagebedImportMessage.textContent =
+      `最近一次导入完成：复制 ${asInt(active.copied)} 张，跳过重复 ${asInt(
+        active.skipped_duplicates,
+      )} 张。`;
+    return;
+  }
+  if (active?.status === "failed") {
+    els.imagebedImportMessage.textContent = `最近一次导入失败：${active.message || "-"}`;
+    return;
+  }
+  if (active?.status === "stopped") {
+    els.imagebedImportMessage.textContent =
+      `最近一次导入已停止：已扫描 ${asInt(active.scanned)} 张，复制 ${asInt(active.copied)} 张。`;
+    return;
+  }
+  if (status?.caption_active || (!imagebedCaptionPaused && pendingCount > 0)) {
+    els.imagebedImportMessage.textContent = "自动标签进程正在运行。";
+    return;
+  }
+  if (imagebedCaptionPaused && pendingCount > 0) {
+    els.imagebedImportMessage.textContent =
+      "导入完成后，可点击“开始”生成标签。";
+    return;
+  }
+  if (stat?.count) {
+    els.imagebedImportMessage.textContent = `最近统计目录包含 ${asInt(stat.count)} 张图片。`;
+    return;
+  }
+  els.imagebedImportMessage.textContent = "";
+}
+
+function selectedImagebedPendingIds() {
+  return Array.from(selectedImagebedPendingImageIds).filter(Boolean);
 }
 
 function scrollToSolidifiedLibrary() {
@@ -2355,9 +2927,10 @@ function selectedExternalPendingIds() {
   return Array.from(selectedExternalPendingImageIds).filter(Boolean);
 }
 
+const EXTERNAL_IMPORT_WARNING_STORAGE_VERSION = "v2";
 const EXTERNAL_IMPORT_WARNING_STORAGE_KEYS = {
-  delete_pending: "smart_image_external_import_skip_delete_warning",
-  cancel_caption: "smart_image_external_import_skip_cancel_warning",
+  delete_pending: `smart_image_external_import_skip_delete_warning_${EXTERNAL_IMPORT_WARNING_STORAGE_VERSION}`,
+  cancel_caption: `smart_image_external_import_skip_cancel_warning_${EXTERNAL_IMPORT_WARNING_STORAGE_VERSION}`,
 };
 
 function shouldSkipExternalImportWarning(action) {
@@ -2450,6 +3023,83 @@ async function confirmExternalImportWarning() {
     await deleteSelectedExternalPendingImages({ confirmed: true });
   } else if (action === "cancel_caption") {
     await cancelExternalCaptioning({ confirmed: true });
+  }
+}
+
+const IMAGEBED_IMPORT_WARNING_STORAGE_KEYS = {
+  delete_pending: "smart_image_imagebed_import_skip_delete_warning",
+  cancel_caption: "smart_image_imagebed_import_skip_cancel_warning",
+};
+
+function shouldSkipImagebedImportWarning(action) {
+  const normalizedAction = String(action || "").trim();
+  if (skippedImagebedImportWarnings.has(normalizedAction)) {
+    return true;
+  }
+  try {
+    return localStorage.getItem(IMAGEBED_IMPORT_WARNING_STORAGE_KEYS[normalizedAction]) === "1";
+  } catch (error) {
+    return false;
+  }
+}
+
+function rememberImagebedImportWarning(action) {
+  const normalizedAction = String(action || "").trim();
+  if (!IMAGEBED_IMPORT_WARNING_STORAGE_KEYS[normalizedAction]) {
+    return;
+  }
+  skippedImagebedImportWarnings.add(normalizedAction);
+  try {
+    localStorage.setItem(IMAGEBED_IMPORT_WARNING_STORAGE_KEYS[normalizedAction], "1");
+  } catch (error) {
+    // Ignore private-mode or quota failures; the warning will simply show again.
+  }
+}
+
+function imagebedImportWarningContent(action) {
+  if (action === "delete_pending") {
+    return {
+      title: "确认删除待打标签图像",
+      text: "手动删除的图床同步图片会被记录，未来再次同步同一个图床对象时不会再次进入本插件。",
+      confirmText: "确认删除",
+    };
+  }
+  return {
+    title: "确认取消自动标签进程",
+    text: "取消后会释放所有未打标签图像；以后需要重新走图床同步导入流程，但插件会自动去重。",
+    confirmText: "确认取消",
+  };
+}
+
+function openImagebedImportWarning(action) {
+  const content = imagebedImportWarningContent(action);
+  pendingImagebedImportWarningAction = action;
+  els.imagebedImportWarningTitle.textContent = content.title;
+  els.imagebedImportWarningText.textContent = content.text;
+  els.imagebedImportWarningConfirmButton.textContent = content.confirmText;
+  els.imagebedImportWarningDontShowInput.checked = false;
+  els.imagebedImportWarningOverlay.classList.remove("is-hidden");
+}
+
+function closeImagebedImportWarning() {
+  pendingImagebedImportWarningAction = null;
+  els.imagebedImportWarningOverlay.classList.add("is-hidden");
+}
+
+async function confirmImagebedImportWarning() {
+  const action = pendingImagebedImportWarningAction;
+  if (!action) {
+    closeImagebedImportWarning();
+    return;
+  }
+  if (els.imagebedImportWarningDontShowInput.checked) {
+    rememberImagebedImportWarning(action);
+  }
+  closeImagebedImportWarning();
+  if (action === "delete_pending") {
+    await deleteSelectedImagebedPendingImages({ confirmed: true });
+  } else if (action === "cancel_caption") {
+    await cancelImagebedCaptioning({ confirmed: true });
   }
 }
 
@@ -2573,6 +3223,133 @@ async function cancelExternalCaptioning(options = {}) {
   }
 }
 
+async function refreshImagebedImportPending() {
+  const pending = await pluginApiGet("imagebed_import_pending");
+  applyImagebedPendingState(pending);
+  renderImagebedImportStatus(pending?.status || {});
+  return pending;
+}
+
+async function deleteSelectedImagebedPendingImages(options = {}) {
+  const imageIds = selectedImagebedPendingIds();
+  if (!imageIds.length) {
+    return;
+  }
+  if (options.confirmed !== true && !shouldSkipImagebedImportWarning("delete_pending")) {
+    openImagebedImportWarning("delete_pending");
+    return;
+  }
+  els.imagebedImportDeletePendingButton.disabled = true;
+  els.imagebedImportMessage.textContent = "正在删除选中的待打标签图像...";
+  try {
+    const result = await pluginApiPost("imagebed_import_delete_pending", {
+      image_ids: imageIds,
+    });
+    selectedImagebedPendingImageIds.clear();
+    if (result?.pending) {
+      applyImagebedPendingState(result.pending, { force: true });
+    } else {
+      await refreshImagebedImportPending();
+    }
+    if (result?.library) {
+      applyLibraryState(result.library, { force: true });
+    }
+    if (result?.progress) {
+      renderProgress(result.progress);
+    }
+    const deleted = asInt(result?.result?.deleted?.length);
+    const skipped = asInt(result?.result?.skipped?.length);
+    els.imagebedImportMessage.textContent = `已删除 ${deleted} 张，跳过 ${skipped} 张。`;
+  } catch (error) {
+    els.imagebedImportMessage.textContent = `删除失败：${error.message || error}`;
+  } finally {
+    syncImagebedPendingSelectionView();
+  }
+}
+
+async function startImagebedCaptioning() {
+  if (
+    !imagebedCaptionPaused ||
+    !imagebedImportPendingImages.length ||
+    lastImagebedImportRunning
+  ) {
+    syncImagebedPendingSelectionView();
+    return;
+  }
+  const providerReady = await ensureCaptionProviderConfigured(
+    startImagebedCaptioningAfterProviderCheck,
+  );
+  if (!providerReady) {
+    return;
+  }
+  await startImagebedCaptioningAfterProviderCheck();
+}
+
+async function startImagebedCaptioningAfterProviderCheck() {
+  if (
+    !imagebedCaptionPaused ||
+    !imagebedImportPendingImages.length ||
+    lastImagebedImportRunning
+  ) {
+    syncImagebedPendingSelectionView();
+    return;
+  }
+  els.imagebedImportPauseButton.disabled = true;
+  els.imagebedImportMessage.textContent = "正在开始自动标签进程...";
+  try {
+    const result = await pluginApiPost("imagebed_import_start_caption", {});
+    if (result?.pending) {
+      applyImagebedPendingState(result.pending, { force: true });
+      renderImagebedImportStatus(result.pending.status || {});
+    }
+    if (result?.progress) {
+      renderProgress(result.progress);
+    }
+    els.imagebedImportMessage.textContent = "自动标签进程已开始。";
+  } catch (error) {
+    els.imagebedImportMessage.textContent = `开始失败：${error.message || error}`;
+  } finally {
+    syncImagebedPendingSelectionView();
+    try {
+      await refreshImagebedImportPending();
+    } catch (refreshError) {
+      // Keep the original start error visible if the status refresh also fails.
+    }
+  }
+}
+
+async function cancelImagebedCaptioning(options = {}) {
+  if (!imagebedImportPendingImages.length) {
+    syncImagebedPendingSelectionView();
+    return;
+  }
+  if (options.confirmed !== true && !shouldSkipImagebedImportWarning("cancel_caption")) {
+    openImagebedImportWarning("cancel_caption");
+    return;
+  }
+  els.imagebedImportCancelCaptionButton.disabled = true;
+  els.imagebedImportMessage.textContent = "正在取消自动标签进程...";
+  try {
+    const result = await pluginApiPost("imagebed_import_cancel_caption", {});
+    selectedImagebedPendingImageIds.clear();
+    if (result?.pending) {
+      applyImagebedPendingState(result.pending, { force: true });
+    }
+    if (result?.library) {
+      applyLibraryState(result.library, { force: true });
+    }
+    if (result?.progress) {
+      renderProgress(result.progress);
+    }
+    const removed = asInt(result?.result?.deleted?.length);
+    els.imagebedImportMessage.textContent = `已取消，释放 ${removed} 张未打标签图像。`;
+  } catch (error) {
+    els.imagebedImportMessage.textContent = `取消失败：${error.message || error}`;
+  } finally {
+    syncImagebedPendingSelectionView();
+  }
+}
+
 async function refreshLibrary() {
   const library = await pluginApiGet("caption_library");
   applyLibraryState(library);
@@ -2608,6 +3385,19 @@ async function refreshAll() {
       !els.externalImportOverlay.classList.contains("is-hidden")
     ) {
       applyExternalImportDialogRunningState(latestExternalStatus);
+    }
+    const imagebedStatus = progress?.imagebed_import || {};
+    const imagebedBlockState = imagebedImportDialogBlockState(imagebedStatus);
+    let latestImagebedStatus = imagebedStatus;
+    if (libraryScopeMode === "imagebed" || imagebedBlockState.blocked) {
+      const pending = await refreshImagebedImportPending();
+      latestImagebedStatus = pending?.status || latestImagebedStatus;
+    }
+    if (
+      els.imagebedImportOverlay &&
+      !els.imagebedImportOverlay.classList.contains("is-hidden")
+    ) {
+      renderImagebedImportDialogStatus(latestImagebedStatus);
     }
   } catch (error) {
     setStatus("failed");
@@ -2788,6 +3578,170 @@ function applyExternalImportDialogRunningState(status) {
   els.externalImportStartButton.disabled = true;
   setExternalImportStatHint(EXTERNAL_IMPORT_BUSY_STAT_HINT, true);
   els.externalImportDialogMessage.textContent = "";
+}
+
+function readImagebedImportDraftConfig() {
+  return {
+    account_id: String(els.imagebedAccountIdInput?.value || "").trim(),
+    access_key_id: String(els.imagebedAccessKeyIdInput?.value || "").trim(),
+    secret_access_key: String(els.imagebedSecretAccessKeyInput?.value || "").trim(),
+    bucket_name: String(els.imagebedBucketNameInput?.value || "").trim(),
+    endpoint_url: String(els.imagebedEndpointUrlInput?.value || "").trim(),
+    prefix: String(els.imagebedPrefixInput?.value || "").trim(),
+    max_file_size_kb: clampInt(els.imagebedMaxFileSizeKbInput?.value, 5120, 1),
+    scheduled_enabled: Boolean(els.imagebedScheduledEnabledInput?.checked),
+    scheduled_time: normalizeBackupTime(els.imagebedScheduledTimeInput?.value),
+  };
+}
+
+function applyImagebedImportDraftConfig(config) {
+  const next = config || {};
+  if (els.imagebedAccountIdInput) {
+    els.imagebedAccountIdInput.value = String(next.account_id || "");
+  }
+  if (els.imagebedAccessKeyIdInput) {
+    els.imagebedAccessKeyIdInput.value = String(next.access_key_id || "");
+  }
+  if (els.imagebedSecretAccessKeyInput) {
+    els.imagebedSecretAccessKeyInput.value = String(
+      next.secret_access_key || "",
+    );
+  }
+  if (els.imagebedBucketNameInput) {
+    els.imagebedBucketNameInput.value = String(next.bucket_name || "");
+  }
+  if (els.imagebedEndpointUrlInput) {
+    els.imagebedEndpointUrlInput.value = String(next.endpoint_url || "");
+  }
+  if (els.imagebedPrefixInput) {
+    els.imagebedPrefixInput.value = String(next.prefix || "");
+  }
+  if (els.imagebedMaxFileSizeKbInput) {
+    els.imagebedMaxFileSizeKbInput.value = String(
+      asInt(next.max_file_size_kb) || 5120,
+    );
+  }
+  if (els.imagebedScheduledEnabledInput) {
+    els.imagebedScheduledEnabledInput.checked = Boolean(next.scheduled_enabled);
+  }
+  if (els.imagebedScheduledTimeInput) {
+    els.imagebedScheduledTimeInput.value = normalizeBackupTime(
+      next.scheduled_time || "03:30",
+    );
+  }
+}
+
+function markImagebedImportConnectionDirty() {
+  imagebedImportConnectionVerified = false;
+  renderImagebedImportDialogStatus(imagebedImportStatusCache || {});
+}
+
+async function testImagebedImportConnection(options = {}) {
+  const payload = readImagebedImportDraftConfig();
+  const silent = Boolean(options?.silent);
+  if (!silent) {
+    els.imagebedImportDialogMessage.textContent = "正在测试图床连接...";
+  }
+  try {
+    const data = await pluginApiPost("imagebed_import_test", payload);
+    imagebedImportConnectionVerified = Boolean(data?.connection?.connected);
+    imagebedImportStatusCache = data.status || imagebedImportStatusCache;
+    renderImagebedImportDialogStatus(imagebedImportStatusCache);
+    if (!silent) {
+      const connection = data.connection || {};
+      els.imagebedImportDialogMessage.textContent = connection.connected
+        ? "连接测试成功。"
+        : `连接测试失败：${connection.message || "-"}`;
+    }
+    return data;
+  } catch (error) {
+    imagebedImportConnectionVerified = false;
+    if (!silent) {
+      els.imagebedImportDialogMessage.textContent = `测试失败：${error.message || error}`;
+    }
+    throw error;
+  }
+}
+
+async function openImagebedImportDialog() {
+  els.imagebedImportDialogMessage.textContent = "正在读取图床配置...";
+  els.imagebedImportStartButton.disabled = true;
+  els.imagebedImportOverlay.classList.remove("is-hidden");
+  try {
+    const config = await pluginApiGet("imagebed_import_config");
+    imagebedImportConnectionVerified = false;
+    applyImagebedImportDraftConfig(config);
+    imagebedImportStatusCache = config.status || imagebedImportStatusCache;
+    renderImagebedImportDialogStatus(imagebedImportStatusCache);
+    await testImagebedImportConnection({ silent: true });
+    els.imagebedImportDialogMessage.textContent = "";
+  } catch (error) {
+    els.imagebedImportDialogMessage.textContent =
+      `读取图床配置失败：${error.message || error}`;
+  }
+}
+
+function closeImagebedImportDialog() {
+  els.imagebedImportOverlay.classList.add("is-hidden");
+  els.imagebedImportDialogMessage.textContent = "";
+}
+
+async function saveImagebedImportDialog(options = {}) {
+  const payload = readImagebedImportDraftConfig();
+  const silent = Boolean(options?.silent);
+  const keepOpen = Boolean(options?.keepOpen);
+  if (!silent) {
+    els.imagebedImportDialogMessage.textContent = "正在保存图床配置...";
+  }
+  try {
+    const data = await pluginApiPost("imagebed_import_config", payload);
+    imagebedImportConnectionVerified = false;
+    applyImagebedImportDraftConfig(data);
+    imagebedImportStatusCache = data.status || imagebedImportStatusCache;
+    renderImagebedImportDialogStatus(imagebedImportStatusCache);
+    if (!silent) {
+      els.imagebedImportDialogMessage.textContent = "图床配置已保存。";
+    }
+    if (!keepOpen) {
+      closeImagebedImportDialog();
+    }
+    return data;
+  } catch (error) {
+    if (!silent) {
+      els.imagebedImportDialogMessage.textContent = `保存失败：${error.message || error}`;
+    }
+    throw error;
+  }
+}
+
+async function startImagebedImportAfterSave() {
+  els.imagebedImportDialogMessage.textContent = "正在启动导入...";
+  await pluginApiPost("imagebed_import_start", {});
+  closeImagebedImportDialog();
+  setLibraryScopeMode("imagebed");
+  els.imagebedImportMessage.textContent = "导入已开始，页面会自动刷新进度。";
+  await refreshAll().catch(() => {});
+}
+
+async function startImagebedImport() {
+  const connectionReady = Boolean(
+    imagebedImportStatusCache?.last_connection?.connected &&
+      imagebedImportConnectionVerified,
+  );
+  if (lastImagebedImportDialogBlocked || !connectionReady) {
+    return;
+  }
+  els.imagebedImportStartButton.disabled = true;
+  try {
+    await saveImagebedImportDialog({ silent: true, keepOpen: true });
+    await testImagebedImportConnection({ silent: true });
+    await startImagebedImportAfterSave();
+  } catch (error) {
+    els.imagebedImportDialogMessage.textContent =
+      `启动导入失败：${error.message || error}`;
+  } finally {
+    els.imagebedImportStartButton.disabled = lastImagebedImportDialogBlocked;
+  }
 }
 
 async function openExternalImportDialog() {
@@ -4381,6 +5335,10 @@ els.externalImportScopeButton.addEventListener("click", () => {
   setLibraryScopeMode("external");
   refreshExternalImportPending();
 });
+els.imagebedImportScopeButton.addEventListener("click", () => {
+  setLibraryScopeMode("imagebed");
+  refreshImagebedImportPending().catch(() => {});
+});
 els.libraryListModeButton.addEventListener("click", () =>
   setLibraryViewMode("list", MANUAL_LIBRARY_SOURCE),
 );
@@ -4398,6 +5356,12 @@ els.externalListModeButton.addEventListener("click", () =>
 );
 els.externalGalleryModeButton.addEventListener("click", () =>
   setLibraryViewMode("gallery", EXTERNAL_LIBRARY_SOURCE),
+);
+els.imagebedListModeButton.addEventListener("click", () =>
+  setLibraryViewMode("list", IMAGEBED_LIBRARY_SOURCE),
+);
+els.imagebedGalleryModeButton.addEventListener("click", () =>
+  setLibraryViewMode("gallery", IMAGEBED_LIBRARY_SOURCE),
 );
 els.solidifiedBackToScopeButton.addEventListener(
   "click",
@@ -4421,6 +5385,12 @@ els.externalLibraryTagSearchInput.addEventListener("input", (event) =>
 els.externalLibraryTagSearchClearButton.addEventListener("click", () =>
   setLibraryTagSearch(EXTERNAL_LIBRARY_SOURCE, ""),
 );
+els.imagebedLibraryTagSearchInput.addEventListener("input", (event) =>
+  setLibraryTagSearch(IMAGEBED_LIBRARY_SOURCE, event.target.value),
+);
+els.imagebedLibraryTagSearchClearButton.addEventListener("click", () =>
+  setLibraryTagSearch(IMAGEBED_LIBRARY_SOURCE, ""),
+);
 els.libraryUploadButton.addEventListener(
   "click",
   openUploadDialogWithProviderCheck,
@@ -4435,9 +5405,14 @@ els.externalImportButton.addEventListener(
   "click",
   openExternalImportDialogAndSwitch,
 );
+els.imagebedImportButton.addEventListener("click", openImagebedImportDialog);
 els.externalLibraryImportButton.addEventListener(
   "click",
   openExternalImportDialogAndSwitch,
+);
+els.imagebedLibraryImportButton.addEventListener(
+  "click",
+  openImagebedImportDialog,
 );
 els.pendingSkipButton.addEventListener("click", scrollToSolidifiedLibrary);
 els.pendingSelectAllButton.addEventListener("click", toggleAllPendingSelection);
@@ -4455,6 +5430,19 @@ els.externalImportPauseButton.addEventListener("click", startExternalCaptioning)
 els.externalImportCancelCaptionButton.addEventListener(
   "click",
   cancelExternalCaptioning,
+);
+els.imagebedImportSelectAllButton.addEventListener(
+  "click",
+  toggleAllImagebedPendingSelection,
+);
+els.imagebedImportDeletePendingButton.addEventListener(
+  "click",
+  deleteSelectedImagebedPendingImages,
+);
+els.imagebedImportPauseButton.addEventListener("click", startImagebedCaptioning);
+els.imagebedImportCancelCaptionButton.addEventListener(
+  "click",
+  cancelImagebedCaptioning,
 );
 els.capacityDeleteOldestButton.addEventListener("click", () =>
   resolveCapacityWarning("delete_oldest"),
@@ -4480,11 +5468,50 @@ els.externalImportWarningCloseButton.addEventListener(
   "click",
   closeExternalImportWarning,
 );
+els.imagebedImportWarningConfirmButton.addEventListener(
+  "click",
+  confirmImagebedImportWarning,
+);
+els.imagebedImportWarningCancelButton.addEventListener(
+  "click",
+  closeImagebedImportWarning,
+);
+els.imagebedImportWarningCloseButton.addEventListener(
+  "click",
+  closeImagebedImportWarning,
+);
 if (els.captionErrorOkButton) {
   els.captionErrorOkButton.addEventListener("click", closeCaptionErrorDialog);
 }
 if (els.captionErrorCloseButton) {
   els.captionErrorCloseButton.addEventListener("click", closeCaptionErrorDialog);
+}
+els.imagebedImportTestButton.addEventListener("click", () =>
+  testImagebedImportConnection().catch(() => {}),
+);
+els.imagebedImportSaveButton.addEventListener("click", () => {
+  saveImagebedImportDialog().catch(() => {});
+});
+els.imagebedImportCancelButton.addEventListener("click", closeImagebedImportDialog);
+els.imagebedImportStartButton.addEventListener("click", () => {
+  startImagebedImport().catch(() => {});
+});
+for (const element of [
+  els.imagebedAccountIdInput,
+  els.imagebedAccessKeyIdInput,
+  els.imagebedSecretAccessKeyInput,
+  els.imagebedBucketNameInput,
+  els.imagebedEndpointUrlInput,
+  els.imagebedPrefixInput,
+  els.imagebedMaxFileSizeKbInput,
+  els.imagebedScheduledEnabledInput,
+  els.imagebedScheduledTimeInput,
+]) {
+  if (!element) {
+    continue;
+  }
+  element.addEventListener("input", markImagebedImportConnectionDirty);
+  element.addEventListener("change", markImagebedImportConnectionDirty);
 }
 els.importButton.addEventListener("click", openImportDialog);
 els.exportButton.addEventListener("click", exportConfig);
@@ -4615,6 +5642,11 @@ els.externalImportOverlay.addEventListener("click", (event) => {
     closeExternalImportDialog();
   }
 });
+els.imagebedImportOverlay.addEventListener("click", (event) => {
+  if (event.target === els.imagebedImportOverlay) {
+    closeImagebedImportDialog();
+  }
+});
 els.solidifiedCapacityOverlay.addEventListener("click", (event) => {
   if (event.target === els.solidifiedCapacityOverlay) {
     closeCapacityWarningDialog(true);
@@ -4623,6 +5655,11 @@ els.solidifiedCapacityOverlay.addEventListener("click", (event) => {
 els.externalImportWarningOverlay.addEventListener("click", (event) => {
   if (event.target === els.externalImportWarningOverlay) {
     closeExternalImportWarning();
+  }
+});
+els.imagebedImportWarningOverlay.addEventListener("click", (event) => {
+  if (event.target === els.imagebedImportWarningOverlay) {
+    closeImagebedImportWarning();
   }
 });
 if (els.captionErrorOverlay) {
@@ -4643,6 +5680,10 @@ if (typeof ResizeObserver === "function") {
     scheduleLibraryRender(EXTERNAL_LIBRARY_SOURCE),
   );
   externalLibraryResizeObserver.observe(els.externalLibraryList);
+  const imagebedLibraryResizeObserver = new ResizeObserver(() =>
+    scheduleLibraryRender(IMAGEBED_LIBRARY_SOURCE),
+  );
+  imagebedLibraryResizeObserver.observe(els.imagebedLibraryList);
 } else {
   window.addEventListener("resize", () =>
     scheduleLibraryRender(MANUAL_LIBRARY_SOURCE),
@@ -4652,6 +5693,9 @@ if (typeof ResizeObserver === "function") {
   );
   window.addEventListener("resize", () =>
     scheduleLibraryRender(EXTERNAL_LIBRARY_SOURCE),
+  );
+  window.addEventListener("resize", () =>
+    scheduleLibraryRender(IMAGEBED_LIBRARY_SOURCE),
   );
 }
 

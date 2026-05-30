@@ -8,6 +8,8 @@ from .common import (
     COLLECTED_COLLECTION_FOLDER,
     COLLECTED_LIBRARY_SOURCE,
     EXTERNAL_IMPORT_FOLDER,
+    IMAGEBED_IMPORT_LIBRARY_FOLDER,
+    IMAGEBED_IMPORT_PENDING_FOLDER,
     IMAGE_FILES_CONFIG_KEY,
     IMAGE_TAGS_CONFIG_KEY,
     Image,
@@ -77,6 +79,8 @@ class AutoCollectionMixin:
             self._config_file_folder(IMAGE_FILES_CONFIG_KEY),
             COLLECTED_COLLECTION_FOLDER,
             EXTERNAL_IMPORT_FOLDER,
+            IMAGEBED_IMPORT_PENDING_FOLDER,
+            IMAGEBED_IMPORT_LIBRARY_FOLDER,
         ):
             root = self.data_dir / "files" / folder
             if not root.is_dir():

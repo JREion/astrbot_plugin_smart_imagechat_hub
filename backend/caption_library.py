@@ -6,8 +6,10 @@ from .common import (
     COLLECTED_LIBRARY_SOURCE,
     CONFIG_PAGE_PATH,
     DEFAULT_CAPTION_PROVIDER_CONFIG_KEY,
+    IMAGEBED_IMPORT_CONFIG_KEY,
     EXTERNAL_LIBRARY_SOURCE,
     GLOBAL_TAGS_CONFIG_KEY,
+    IMAGEBED_LIBRARY_SOURCE,
     IMAGE_TAGS_CONFIG_KEY,
     LIBRARY_WATCH_INTERVAL_SECONDS,
     MANUAL_LIBRARY_SOURCE,
@@ -254,6 +256,8 @@ class CaptionLibraryMixin:
     async def _sync_library_if_changed(self, caption_mode: str = "background") -> None:
         if self._external_import_task and not self._external_import_task.done():
             return
+        if self._imagebed_import_task and not self._imagebed_import_task.done():
+            return
         signature = self._library_signature()
         task_running = bool(self._caption_task and not self._caption_task.done())
         waiting_without_task = (
@@ -475,6 +479,17 @@ class CaptionLibraryMixin:
             snapshot["remaining"] = external_pending_count
             snapshot["total"] = external_pending_count
             snapshot["message"] = "External import tag generation paused."
+        elif (
+            self._imagebed_caption_paused()
+            and self._imagebed_pending_count() > 0
+            and snapshot.get("status") in {"idle", "pending", "running", "done"}
+        ):
+            imagebed_pending_count = self._imagebed_pending_count()
+            snapshot["status"] = "pending"
+            snapshot["running"] = False
+            snapshot["remaining"] = imagebed_pending_count
+            snapshot["total"] = imagebed_pending_count
+            snapshot["message"] = "Imagebed import tag generation paused."
         else:
             snapshot["running"] = False
         snapshot["pending_images"] = pending_count
@@ -488,6 +503,7 @@ class CaptionLibraryMixin:
             snapshot.get("status") in {"done", "failed", "cancelled"}
             and not snapshot.get("running")
         )
+        snapshot["imagebed_import"] = self._imagebed_import_status_snapshot()
         return snapshot
 
     def _caption_library_snapshot(self) -> dict[str, Any]:
@@ -495,6 +511,7 @@ class CaptionLibraryMixin:
         manual_items = []
         solidified_items = []
         external_items = []
+        imagebed_items = []
         if isinstance(images, dict):
             for item in images.values():
                 if not isinstance(item, dict):
@@ -516,6 +533,8 @@ class CaptionLibraryMixin:
                     solidified_items.append(library_item)
                 elif source == EXTERNAL_LIBRARY_SOURCE:
                     external_items.append(library_item)
+                elif source == IMAGEBED_LIBRARY_SOURCE:
+                    imagebed_items.append(library_item)
                 else:
                     manual_items.append(library_item)
 
@@ -537,12 +556,17 @@ class CaptionLibraryMixin:
             key=sort_key,
             reverse=True,
         )
-        all_items = manual_items + solidified_items + external_items
+        imagebed_items.sort(
+            key=sort_key,
+            reverse=True,
+        )
+        all_items = manual_items + solidified_items + external_items + imagebed_items
         return {
             "images": manual_items,
             "manual_images": manual_items,
             "solidified_images": solidified_items,
             "external_images": external_items,
+            "imagebed_images": imagebed_items,
             "all_images": all_items,
             "global_tags": self._global_tags(),
             PAGE_LIBRARY_DEFAULT_VIEW_MODE_CONFIG_KEY: (
@@ -557,6 +581,8 @@ class CaptionLibraryMixin:
             return snapshot.get("solidified_images", [])
         if source == EXTERNAL_LIBRARY_SOURCE:
             return snapshot.get("external_images", [])
+        if source == IMAGEBED_LIBRARY_SOURCE:
+            return snapshot.get("imagebed_images", [])
         if source == MANUAL_LIBRARY_SOURCE:
             return snapshot.get("manual_images", [])
         return snapshot.get("all_images", [])
@@ -579,6 +605,7 @@ class CaptionLibraryMixin:
                 "request_keywords": self._request_keywords(),
             },
             AUTO_COLLECTION_CONFIG_KEY: self._auto_collection_config(),
+            IMAGEBED_IMPORT_CONFIG_KEY: self._imagebed_config_snapshot(),
             MEME_COMBAT_CONFIG_KEY: self._meme_combat_config(),
             SCHEDULED_BACKUP_CONFIG_KEY: self._scheduled_backup_config(),
             MODEL_FALLBACK_CONFIG_KEY: self._model_fallback_snapshot(),
@@ -615,6 +642,14 @@ class CaptionLibraryMixin:
                 self._normalize_scheduled_backup_config(raw_scheduled_backup_cfg)
             )
             self._restart_scheduled_backup_task()
+        raw_imagebed_cfg = payload.get(IMAGEBED_IMPORT_CONFIG_KEY)
+        if isinstance(raw_imagebed_cfg, dict):
+            self._set_imagebed_import_config(
+                raw_imagebed_cfg,
+                save_plugin_config=False,
+                save_state=True,
+            )
+            self._restart_imagebed_sync_task()
         raw_model_fallback_cfg = payload.get(MODEL_FALLBACK_CONFIG_KEY)
         if isinstance(raw_model_fallback_cfg, dict):
             self.config[MODEL_FALLBACK_CONFIG_KEY] = (
@@ -1057,6 +1092,8 @@ class CaptionLibraryMixin:
                 continue
             if self._is_paused_external_caption_item(item):
                 continue
+            if self._is_paused_imagebed_caption_item(item):
+                continue
             rel_path = self._norm_rel_path(item.get("rel_path"))
             if rel_path:
                 rel_paths.append(rel_path)
@@ -1102,6 +1139,11 @@ class CaptionLibraryMixin:
                 "自动标签进程失败。失败的外部导入图像仍保留在“导入进程”栏目中，"
                 "需要重新点击“开始”按钮进行标签生成。"
             )
+        if source == IMAGEBED_LIBRARY_SOURCE:
+            return (
+                "自动标签进程失败。失败的图床同步图像仍保留在“导入进程”栏目中，"
+                "需要重新点击“开始”按钮进行标签生成。"
+            )
         return (
             "自动标签进程失败。失败的手动上传图像已移除，"
             "需要重新上传图片。"
@@ -1120,6 +1162,9 @@ class CaptionLibraryMixin:
             item["updated_at"] = int(time.time())
             self._external_import_state["caption_paused"] = True
             self._save_external_import_state()
+            return source
+        if source == IMAGEBED_LIBRARY_SOURCE:
+            self._rollback_caption_failed_imagebed_item(item)
             return source
         if source == COLLECTED_LIBRARY_SOURCE:
             self._restore_caption_failed_solidified_item_to_pool(item, rel_path)
@@ -1345,6 +1390,10 @@ class CaptionLibraryMixin:
                         item["caption_status"] = "done"
                         item["captioned_at"] = int(time.time())
                         item["caption_prompt_version"] = CAPTION_PROMPT_VERSION
+                        item, rel_path = self._finalize_captioned_imagebed_item(
+                            item,
+                            rel_path,
+                        )
                         completed += 1
                         logger.info(
                             "astrbot_plugin_smart_imagechat_hub: generated image tags %s/%s for %s: %s",

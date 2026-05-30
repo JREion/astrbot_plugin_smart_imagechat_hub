@@ -92,6 +92,7 @@
             <button id="autoCollectionButton" type="button">自动收集群友发的图</button>
             <button id="memeCombatButton" type="button">群聊智能斗图</button>
             <button id="externalImportButton" type="button">从其他插件导入图库</button>
+            <button id="imagebedImportButton" type="button">从图床导入图库</button>
             <button id="moreConfigButton" type="button" class="warning-button">更多插件配置 ...</button>
           </div>
         </section>
@@ -144,6 +145,14 @@
             aria-pressed="false"
             aria-label="其他插件的图库"
             title="其他插件的图库"
+          ></button>
+          <button
+            id="imagebedImportScopeButton"
+            type="button"
+            class="scope-toggle-button"
+            aria-pressed="false"
+            aria-label="图床同步的图库"
+            title="图床同步的图库"
           ></button>
         </div>
       </div>
@@ -351,6 +360,79 @@
         </div>
         <div id="externalLibraryList" class="library-list"></div>
         <p id="emptyExternalLibraryText" class="empty-text">暂无已完成标签生成的外部插件图像。</p>
+      </section>
+      </div>
+
+      <div id="imagebedImportScope" class="is-hidden">
+      <section class="panel pending-collection-panel">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Imagebed Import</p>
+            <h2>导入进程</h2>
+          </div>
+          <div class="pending-header-actions">
+            <span id="imagebedImportPendingMeta" class="meta-text">0 张</span>
+            <button id="imagebedImportSelectAllButton" type="button" class="secondary">全选</button>
+            <button id="imagebedImportDeletePendingButton" type="button" class="danger-button">批量丢弃</button>
+            <button id="imagebedImportPauseButton" type="button" class="secondary" disabled>开始</button>
+            <button id="imagebedImportCancelCaptionButton" type="button" class="danger-button">取消导入</button>
+          </div>
+        </div>
+        <div id="imagebedImportPendingList" class="pending-pool-list"></div>
+        <p id="emptyImagebedImportPendingText" class="empty-text">暂无从图床导入后等待打标签的图像。</p>
+        <p id="imagebedImportDialogMessage" class="editor-message"></p>
+      </section>
+
+      <section class="panel library-panel imagebed-library-panel">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Imagebed Library</p>
+            <h2>来自图床的图像库与标签管理</h2>
+          </div>
+          <div class="library-header-actions">
+            <span id="imagebedLibraryMeta" class="meta-text">0 张</span>
+            <div class="library-mode-toggle" role="group" aria-label="图床同步的图库显示模式">
+              <button
+                id="imagebedListModeButton"
+                type="button"
+                class="library-mode-button"
+                aria-pressed="true"
+                aria-label="列表模式"
+                title="列表模式"
+              ></button>
+              <button
+                id="imagebedGalleryModeButton"
+                type="button"
+                class="library-mode-button"
+                aria-pressed="false"
+                aria-label="画廊模式"
+                title="画廊模式"
+              ></button>
+            </div>
+            <button id="imagebedLibraryImportButton" type="button">配置图床导入</button>
+          </div>
+        </div>
+
+        <div class="library-search-row">
+          <span class="library-search-icon" aria-hidden="true"></span>
+          <label class="library-search-box" for="imagebedLibraryTagSearchInput">
+            <input
+              id="imagebedLibraryTagSearchInput"
+              type="search"
+              autocomplete="off"
+              placeholder="按标签搜索"
+            />
+            <button
+              id="imagebedLibraryTagSearchClearButton"
+              type="button"
+              class="library-search-clear is-hidden"
+              aria-label="清空图床图库标签搜索"
+              title="清空"
+            ></button>
+          </label>
+        </div>
+        <div id="imagebedLibraryList" class="library-list"></div>
+        <p id="emptyImagebedLibraryText" class="empty-text">暂无从图床同步并完成打标签的图像。</p>
       </section>
       </div>
 
@@ -1255,6 +1337,143 @@
       </section>
     </div>
 
+    <div id="imagebedImportOverlay" class="editor-overlay is-hidden" role="dialog" aria-modal="true">
+      <section class="editor-panel config-panel external-import-panel">
+        <div class="editor-header config-header">
+          <div>
+            <p class="eyebrow">Imagebed Import</p>
+            <h2>配置图床导入</h2>
+          </div>
+          <div class="config-header-actions">
+            <button id="imagebedImportTestButton" type="button" class="success-button">测试连接</button>
+            <button id="imagebedImportStartButton" type="button" class="primary-action">开始导入</button>
+            <button id="imagebedImportSaveButton" type="button">保存</button>
+            <button id="imagebedImportCancelButton" type="button" class="secondary">取消</button>
+          </div>
+        </div>
+
+        <div class="imagebed-config-status">
+          <div>
+            <span>连接状态</span>
+            <strong id="imagebedConnectionStatus">-</strong>
+          </div>
+          <div>
+            <span>最后同步</span>
+            <strong id="imagebedLastSyncAt">-</strong>
+          </div>
+          <div>
+            <span>未同步数量</span>
+            <strong id="imagebedUnsyncedCount">-</strong>
+          </div>
+        </div>
+
+        <div class="config-sections">
+          <section class="config-section">
+            <div class="config-section-title capability-section-title">
+              <h3>Cloudflare R2 配置</h3>
+              <p>配置图床连接参数、同步前缀和单张图片大小上限。</p>
+            </div>
+
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="imagebedAccountIdInput">Account ID</label>
+                <p>Cloudflare R2 的账户 ID。若填写了完整 endpoint，也可以留空。</p>
+              </div>
+              <div class="config-item-control">
+                <input id="imagebedAccountIdInput" type="text" autocomplete="off" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
+              </div>
+            </div>
+
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="imagebedAccessKeyIdInput">Access Key ID</label>
+              </div>
+              <div class="config-item-control">
+                <input id="imagebedAccessKeyIdInput" type="text" autocomplete="off" />
+              </div>
+            </div>
+
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="imagebedSecretAccessKeyInput">Secret Access Key</label>
+              </div>
+              <div class="config-item-control">
+                <input id="imagebedSecretAccessKeyInput" type="text" autocomplete="off" />
+              </div>
+            </div>
+
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="imagebedBucketNameInput">Bucket 名称</label>
+              </div>
+              <div class="config-item-control">
+                <input id="imagebedBucketNameInput" type="text" autocomplete="off" />
+              </div>
+            </div>
+
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="imagebedEndpointUrlInput">Endpoint URL</label>
+                <p>可选。留空时默认使用 Cloudflare R2 的标准 endpoint。</p>
+              </div>
+              <div class="config-item-control">
+                <input id="imagebedEndpointUrlInput" type="text" autocomplete="off" placeholder="https://&lt;account_id&gt;.r2.cloudflarestorage.com" />
+              </div>
+            </div>
+
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="imagebedPrefixInput">对象前缀</label>
+                <p>可选。只同步该前缀下的对象。</p>
+              </div>
+              <div class="config-item-control">
+                <input id="imagebedPrefixInput" type="text" autocomplete="off" placeholder="images/" />
+              </div>
+            </div>
+
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="imagebedMaxFileSizeKbInput">单张图片大小上限 (KB)</label>
+              </div>
+              <div class="config-item-control">
+                <input id="imagebedMaxFileSizeKbInput" type="number" min="1" step="1" />
+              </div>
+            </div>
+          </section>
+
+          <section class="config-section">
+            <div class="config-section-title">
+              <h3>定时同步</h3>
+              <p>启用后，插件会在指定时间自动从图床同步新图片。</p>
+            </div>
+
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="imagebedScheduledEnabledInput">开启定时同步</label>
+              </div>
+              <div class="config-item-control">
+                <label class="switch-option">
+                  <input id="imagebedScheduledEnabledInput" type="checkbox" />
+                  <span> </span>
+                </label>
+              </div>
+            </div>
+
+            <div class="config-item">
+              <div class="config-item-copy">
+                <label for="imagebedScheduledTimeInput">定时同步时间</label>
+              </div>
+              <div class="config-item-control">
+                <input id="imagebedScheduledTimeInput" type="time" />
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <p id="imagebedImportMessage" class="editor-message"></p>
+      </section>
+    </div>
+
     <div id="externalImportOverlay" class="editor-overlay is-hidden" role="dialog" aria-modal="true">
       <section class="editor-panel external-import-panel">
         <div class="editor-header">
@@ -1337,12 +1556,38 @@
       </section>
     </div>
 
+    <div id="imagebedImportWarningOverlay" class="editor-overlay is-hidden" role="dialog" aria-modal="true">
+      <section class="editor-panel capacity-panel">
+        <div class="editor-header">
+          <div>
+            <p class="eyebrow">Imagebed Import Warning</p>
+            <h2 id="imagebedImportWarningTitle">操作确认</h2>
+          </div>
+          <button id="imagebedImportWarningCloseButton" type="button" class="icon-button" aria-label="关闭">×</button>
+        </div>
+
+        <div class="capacity-body">
+          <p id="imagebedImportWarningText" class="warning-dialog-text"></p>
+          <label class="checkbox-row compact">
+            <input id="imagebedImportWarningDontShowInput" type="checkbox" />
+            <span>不再显示</span>
+          </label>
+        </div>
+
+        <div class="capacity-actions">
+          <span class="action-spacer"></span>
+          <button id="imagebedImportWarningConfirmButton" type="button" class="danger-button">确定</button>
+          <button id="imagebedImportWarningCancelButton" type="button" class="secondary">取消</button>
+        </div>
+      </section>
+    </div>
+
     <div id="captionErrorOverlay" class="editor-overlay is-hidden" role="dialog" aria-modal="true">
       <section class="editor-panel caption-error-panel">
         <div class="editor-header">
           <div>
-            <p class="eyebrow">Caption Error</p>
-            <h2>自动标签进程失败</h2>
+            <p class="eyebrow" id="captionErrorEyebrow">任务错误</p>
+            <h2 id="captionErrorTitle">任务执行失败</h2>
           </div>
           <button id="captionErrorCloseButton" type="button" class="icon-button" aria-label="关闭">×</button>
         </div>

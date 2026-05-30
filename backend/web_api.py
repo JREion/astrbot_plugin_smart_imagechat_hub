@@ -2,6 +2,7 @@ from .common import (
     AUTO_COLLECTION_CONFIG_KEY,
     Any,
     DEFAULT_CAPTION_PROVIDER_CONFIG_KEY,
+    IMAGEBED_IMPORT_CONFIG_KEY,
     IMAGE_FILES_CONFIG_KEY,
     MEME_COMBAT_CONFIG_KEY,
     PLUGIN_NAME,
@@ -192,6 +193,66 @@ class WebApiMixin:
             "Cancel external import tag generation and remove pending images",
         )
         self.context.register_web_api(
+            f"/{PLUGIN_NAME}/imagebed_import_config",
+            self.imagebed_import_config_api,
+            ["GET", "POST"],
+            "Get or update Cloudflare R2 imagebed import settings",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/imagebed_import_test",
+            self.imagebed_import_test_api,
+            ["POST"],
+            "Test Cloudflare R2 imagebed connection",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/imagebed_import_status",
+            self.imagebed_import_status_api,
+            ["GET"],
+            "Get Cloudflare R2 imagebed import status",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/imagebed_import_start",
+            self.imagebed_import_start_api,
+            ["POST"],
+            "Start Cloudflare R2 imagebed import",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/imagebed_import_pending",
+            self.imagebed_import_pending_api,
+            ["GET"],
+            "Get Cloudflare R2 imagebed images waiting for tags",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/imagebed_import_thumb/<image_id>",
+            self.imagebed_import_thumb_api,
+            ["GET"],
+            "Get Cloudflare R2 imagebed pending thumbnail",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/imagebed_import_delete_pending",
+            self.imagebed_import_delete_pending_api,
+            ["POST"],
+            "Delete pending Cloudflare R2 imagebed images",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/imagebed_import_start_caption",
+            self.imagebed_import_start_caption_api,
+            ["POST"],
+            "Start Cloudflare R2 imagebed tag generation",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/imagebed_import_cancel_caption",
+            self.imagebed_import_cancel_caption_api,
+            ["POST"],
+            "Cancel Cloudflare R2 imagebed tag generation",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/imagebed_import_ack_error",
+            self.imagebed_import_ack_error_api,
+            ["POST"],
+            "Acknowledge Cloudflare R2 imagebed import error",
+        )
+        self.context.register_web_api(
             f"/{PLUGIN_NAME}/caption_update_tags",
             self.caption_update_tags_api,
             ["POST"],
@@ -272,6 +333,7 @@ class WebApiMixin:
                 "data": {
                     **self._caption_progress_snapshot(),
                     "external_import": self._external_import_status_snapshot(),
+                    "imagebed_import": self._imagebed_import_status_snapshot(),
                 },
             }
         )
@@ -726,6 +788,109 @@ class WebApiMixin:
                     "library": self._caption_library_snapshot(),
                     "progress": self._caption_progress_snapshot(),
                 },
+            }
+        )
+
+    async def imagebed_import_config_api(self):
+        if request.method == "GET":
+            return jsonify({"status": "ok", "data": self._imagebed_config_snapshot()})
+
+        payload = await request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            return jsonify({"status": "error", "message": "Invalid config payload"})
+        async with self._lock:
+            self._set_imagebed_import_config(payload)
+            self._restart_imagebed_sync_task()
+        return jsonify({"status": "ok", "data": self._imagebed_config_snapshot()})
+
+    async def imagebed_import_test_api(self):
+        payload = await request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            payload = {}
+        return jsonify({"status": "ok", "data": await self._test_imagebed_connection(payload)})
+
+    async def imagebed_import_status_api(self):
+        return jsonify(
+            {"status": "ok", "data": self._imagebed_import_status_snapshot()}
+        )
+
+    async def imagebed_import_start_api(self):
+        try:
+            await self._sync_library_if_changed(caption_mode="none")
+            status = await self._start_imagebed_import(trigger="manual")
+        except ValueError as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
+        return jsonify({"status": "ok", "data": status})
+
+    async def imagebed_import_pending_api(self):
+        return jsonify(
+            {"status": "ok", "data": self._imagebed_import_pending_snapshot()}
+        )
+
+    async def imagebed_import_thumb_api(self, image_id: str):
+        try:
+            image_path = await self._imagebed_import_image_response_path(image_id)
+        except ValueError as exc:
+            message = str(exc)
+            status_code = 404 if "not found" in message or "missing" in message else 400
+            return jsonify({"status": "error", "message": message}), status_code
+        return await send_file(image_path)
+
+    async def imagebed_import_delete_pending_api(self):
+        payload = await request.get_json(silent=True) or {}
+        image_ids = self._normalize_ids(payload.get("image_ids", []))
+        if not image_ids:
+            return jsonify({"status": "error", "message": "image_ids is required"})
+        async with self._lock:
+            result = self._delete_imagebed_pending_images(image_ids)
+        return jsonify(
+            {
+                "status": "ok",
+                "data": {
+                    "result": result,
+                    "pending": self._imagebed_import_pending_snapshot(),
+                    "library": self._caption_library_snapshot(),
+                    "progress": self._caption_progress_snapshot(),
+                },
+            }
+        )
+
+    async def imagebed_import_start_caption_api(self):
+        try:
+            await self._start_imagebed_captioning()
+        except ValueError as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
+        return jsonify(
+            {
+                "status": "ok",
+                "data": {
+                    "pending": self._imagebed_import_pending_snapshot(),
+                    "progress": self._caption_progress_snapshot(),
+                },
+            }
+        )
+
+    async def imagebed_import_cancel_caption_api(self):
+        result = await self._cancel_imagebed_captioning()
+        return jsonify(
+            {
+                "status": "ok",
+                "data": {
+                    "result": result,
+                    "pending": self._imagebed_import_pending_snapshot(),
+                    "library": self._caption_library_snapshot(),
+                    "progress": self._caption_progress_snapshot(),
+                },
+            }
+        )
+
+    async def imagebed_import_ack_error_api(self):
+        payload = await request.get_json(silent=True) or {}
+        error_id = str(payload.get("error_id") or "").strip()
+        return jsonify(
+            {
+                "status": "ok",
+                "data": self._ack_imagebed_import_error(error_id),
             }
         )
 

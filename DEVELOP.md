@@ -1,5 +1,28 @@
 # DEVELOP
 
+# v2.8.0
+
+- Added a Page-only Cloudflare R2 imagebed import flow. Users can configure
+  account, bucket, auth, prefix, size cap, and scheduled sync settings in the
+  Page modal, test the connection, and import remote objects into a separate
+  imagebed pending pool before captioning.
+- Split the imagebed pipeline from the existing external-plugin import path.
+  Imagebed pending images, imported library images, discarded-object history,
+  and import state are stored in their own files and folders so the two import
+  sources do not share queues or cleanup state.
+- Extended the Page with a new imagebed scope tab, imagebed import progress
+  panel, imagebed library manager, and a failure dialog that exposes the full
+  backend error log in a collapsible block while staying hidden during the
+  imagebed config modal.
+- Persisted imagebed import settings in the imagebed state file as a mirrored
+  recovery copy, so the Cloudflare R2 modal can repopulate after plugin reloads
+  even when the plugin config object is recreated.
+- Versioned the external destructive-warning preference storage so stale
+  "do not show again" state from earlier builds no longer suppresses the
+  confirmation overlay for external-plugin import actions.
+- Bumped plugin metadata, runtime version, and Page backup-version constant to
+  `v2.8.0`.
+
 # v2.6.1
 
 - Adjusted the Page model-fallback provider priority controls: the delete

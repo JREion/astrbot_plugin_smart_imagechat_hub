@@ -13,6 +13,8 @@ from .common import (
     time,
 )
 
+EXTERNAL_IMPORT_WARNING_PREFERENCES_VERSION = 2
+
 
 class ExternalImportMixin:
     def _external_import_root(self) -> Path:
@@ -33,6 +35,9 @@ class ExternalImportMixin:
             data.setdefault("last_stat", {})
             data.setdefault("caption_paused", True)
             data.setdefault("warning_preferences", {})
+            stored_warning_preferences_version = data.get(
+                "warning_preferences_version"
+            )
             if not isinstance(data["imports"], dict):
                 data["imports"] = {}
             if not isinstance(data["manually_deleted_digests"], dict):
@@ -43,6 +48,14 @@ class ExternalImportMixin:
                 data["last_stat"] = {}
             if not isinstance(data["warning_preferences"], dict):
                 data["warning_preferences"] = {}
+            if self._to_int(
+                stored_warning_preferences_version,
+                0,
+            ) != EXTERNAL_IMPORT_WARNING_PREFERENCES_VERSION:
+                data["warning_preferences"] = {}
+            data["warning_preferences_version"] = (
+                EXTERNAL_IMPORT_WARNING_PREFERENCES_VERSION
+            )
             return data
         except Exception as exc:
             logger.warning(
@@ -60,6 +73,7 @@ class ExternalImportMixin:
             "last_stat": {},
             "caption_paused": True,
             "warning_preferences": {},
+            "warning_preferences_version": EXTERNAL_IMPORT_WARNING_PREFERENCES_VERSION,
         }
 
     def _save_external_import_state(self) -> None:
@@ -740,6 +754,9 @@ class ExternalImportMixin:
             raw = {}
             self._external_import_state["warning_preferences"] = raw
         raw[action] = bool(skip)
+        self._external_import_state["warning_preferences_version"] = (
+            EXTERNAL_IMPORT_WARNING_PREFERENCES_VERSION
+        )
         self._save_external_import_state()
         return self._external_import_warning_preferences()
 

@@ -6,7 +6,7 @@ configuration semantics change.
 
 ## Version
 
-- Current plugin version: `v2.6.1`
+- Current plugin version: `v2.8.0`
 - AstrBot requirement: `>=4.24.2`
 - Main entry: `main.py`
 - Backend package: `backend/`
@@ -30,6 +30,7 @@ astrbot_plugin_smart_imagechat_hub/
 |   |-- llm_context.py
 |   |-- config_schema.py
 |   |-- external_import.py
+|   |-- imagebed_import.py
 |   |-- caption_library.py
 |   |-- backup_restore.py
 |   |-- auto_collection.py
@@ -66,7 +67,16 @@ astrbot_plugin_smart_imagechat_hub/
 - External plugin import state and manually deleted pending-image digests:
   `external_import_state.json`
   The same state file stores the persistent external-import caption pause flag
-  and Page destructive-warning "do not show again" preferences.
+  and versioned Page destructive-warning "do not show again" preferences.
+- Cloudflare R2 imagebed pending pool: `files/imagebed_import/pending_pool/`
+- Cloudflare R2 imagebed imported library: `files/imagebed_import/imported_library/`
+- Cloudflare R2 imagebed thumbnail cache: `files/imagebed_import/thumbnails/`
+- Cloudflare R2 imagebed import state, last connection/stat snapshot,
+  mirrored config recovery copy, last successful sync time, persistent caption
+  pause flag, and last error:
+  `imagebed_import_state.json`
+- Cloudflare R2 imagebed discarded remote-object and digest history:
+  `imagebed_import_discarded.json`
 - Scheduled backup storage: `scheduled_backups/`
 - Plugin config image list: `library_builder.image_files`
 - Global tags: `library_builder.global_tags`
@@ -111,6 +121,11 @@ astrbot_plugin_smart_imagechat_hub/
 - `page_library_default_view_mode`: Page-only setting, not exposed in native
   `_conf_schema.json`. It stores the initial list/gallery display mode for the
   manual, solidified, and external image libraries when the Page is opened.
+- `imagebed_import`: Page-only Cloudflare R2 imagebed import settings. Stores
+  account, bucket, auth, prefix, size cap, and scheduled sync controls without
+  adding a native WebUI config group. The same values are mirrored into
+  `imagebed_import_state.json` so the Page modal can recover after reloads even
+  when AstrBot recreates the plugin config object.
 
 ## Backend Modules
 
@@ -136,7 +151,12 @@ message hooks stay in `main.py` and call methods supplied by backend mixins.
   persistent-data directories, directory-tree/stat APIs, incremental copy with
   cross-library digest dedupe, pending external-image lifecycle, direct
   thumbnail serving for pending imports, manual pending delete digest history,
-  and pause/cancel controls for imported images waiting for tags.
+  versioned destructive-warning preferences, and pause/cancel controls for
+  imported images waiting for tags.
+- `backend/imagebed_import.py`: Page-only Cloudflare R2 import, SigV4 listing
+  and connection test helpers, incremental pending-pool import, discarded
+  object/digest history, state-backed config recovery for reloads, scheduled
+  sync state, and imagebed caption pause/resume/cancel controls.
 - `backend/meme_combat.py`: bounded group-image observer queue, in-memory image
   window tracking, join-pattern replies, image-burst sends, continuous-image
   battle detection, quick visual semantic analysis, and cooldown/state reset
@@ -154,7 +174,8 @@ message hooks stay in `main.py` and call methods supplied by backend mixins.
 
 All routes are registered below `/api/plug/astrbot_plugin_smart_imagechat_hub/`.
 
-- `GET caption_progress`: Current background tag-generation progress.
+- `GET caption_progress`: Current background tag-generation progress plus
+  external and imagebed import status snapshots.
 - `POST caption_start`: Sync library and start/continue background captioning.
 - `GET caption_library`: Image library snapshot, global tags, and per-image tags.
 - `GET/POST caption_plugin_config`: Read/write main plugin settings.
@@ -197,6 +218,30 @@ All routes are registered below `/api/plug/astrbot_plugin_smart_imagechat_hub/`.
 - `POST external_import_cancel_caption`: Cancel captioning and remove untagged
   external imported images without recording deleted digests, so future syncs
   may import them again.
+- `GET/POST imagebed_import_config`: Read/write Cloudflare R2 imagebed import
+  settings. The snapshot includes the current status row shown in the Page
+  modal, and the normalized config is mirrored into the imagebed state file so
+  reloads can repopulate the modal when the plugin config object is rebuilt.
+- `POST imagebed_import_test`: Test the configured Cloudflare R2 endpoint and
+  update the last connection/stat snapshot.
+- `GET imagebed_import_status`: Return active/last imagebed import counters,
+  pending count, imagebed library count, pause state, and last error.
+- `POST imagebed_import_start`: Start an incremental import from the configured
+  Cloudflare R2 bucket into the separate imagebed pending pool.
+- `GET imagebed_import_pending`: Return imported imagebed images that are still
+  waiting for automatic tag generation.
+- `GET imagebed_import_thumb/<image_id>`: Serve a direct thumbnail for imagebed
+  pending images, falling back to the imported image file when no generated
+  thumbnail cache exists.
+- `POST imagebed_import_delete_pending`: Delete selected pending imagebed
+  images and remember their remote-object markers so future syncs skip them.
+- `POST imagebed_import_start_caption`: Explicitly start automatic captioning
+  for imagebed pending images after the copy/import phase has completed.
+- `POST imagebed_import_cancel_caption`: Cancel captioning and remove untagged
+  imagebed imported images without recording deleted digests, so future syncs
+  may import them again.
+- `POST imagebed_import_ack_error`: Acknowledge an imagebed import or caption
+  failure after the Page error dialog has been shown.
 - `GET/POST scheduled_backup_config`: Read/write scheduled-backup settings and
   refresh the visible backup list schema.
 - `GET scheduled_backup_list`: Return the current stored scheduled backups,
@@ -241,7 +286,7 @@ Main sections in `pages/image-center-page/index.html`:
   narrow screens.
 - Capabilities panel: `userSearchButton`, `proactiveEmojiButton`,
   `autoCollectionButton`, `memeCombatButton`, `externalImportButton`,
-  `moreConfigButton`. Buttons render
+  `imagebedImportButton`, `moreConfigButton`. Buttons render
   as one or two equal-width columns depending on available width, keep labels on
   one line, and keep the yellow more-config button on the final row.
 - Global tags panel: `globalTagsInput`, `globalTagsPreview`,
@@ -251,9 +296,10 @@ Main sections in `pages/image-center-page/index.html`:
   `libraryUploadButton`, `emptyLibraryText`. The search row sits above the image
   list, outside the sticky header, and filters displayed manual images by tag.
 - Library scope switch: `manualLibraryScopeButton`,
-  `autoCollectionScopeButton`, and `externalImportScopeButton` choose whether
-  the Page shows the manual upload library, the auto-collection
-  pending/solidified sections, or the external-import process/library sections.
+  `autoCollectionScopeButton`, `externalImportScopeButton`, and
+  `imagebedImportScopeButton` choose whether the Page shows the manual upload
+  library, the auto-collection pending/solidified sections, the external-import
+  process/library sections, or the imagebed process/library sections.
 - Pending collection panel: `pendingPoolList`, `pendingPoolMeta`,
   `pendingSkipButton`, `pendingSelectAllButton`, `pendingAcceptButton`,
   `pendingDiscardButton`,
@@ -307,6 +353,21 @@ Main sections in `pages/image-center-page/index.html`:
   save, and delete APIs as the manual and solidified libraries while passing
   `library_source=external_imported`. `externalLibraryImportButton` opens the
   same external import dialog as the capabilities-panel import button.
+- Imagebed import process panel: `imagebedImportPendingList`,
+  `imagebedImportPendingMeta`, `imagebedImportSelectAllButton`,
+  `imagebedImportDeletePendingButton`, `imagebedImportPauseButton`,
+  `imagebedImportCancelCaptionButton`, `emptyImagebedImportPendingText`, and
+  `imagebedImportMessage`. It mirrors the external-import pending flow but uses
+  a separate pending pool, a separate caption-start/pause/resume control, and a separate
+  `imagebed_imported` library source.
+- Imagebed imported library panel: `imagebedLibraryList`,
+  `imagebedListModeButton`, `imagebedGalleryModeButton`,
+  `imagebedLibraryTagSearchInput`, `imagebedLibraryTagSearchClearButton`,
+  `imagebedLibraryImportButton`, `imagebedLibraryMeta`, and
+  `emptyImagebedLibraryText`. It reuses the same list/gallery image editor, tag
+  save, and delete APIs as the other libraries while passing
+  `library_source=imagebed_imported`. `imagebedLibraryImportButton` opens the
+  same imagebed import dialog as the capabilities-panel button.
 - Auto-collection dialog: `autoCollectionButton`, `autoCollectionOverlay`,
   save/cancel buttons, and the auto-collection config inputs, including
   `autoCollectionRejectDiscardedInput`.
@@ -326,6 +387,19 @@ Main sections in `pages/image-center-page/index.html`:
   shows a running-import notice in the yellow stat-hint box and disables both
   the stat and start buttons until polling observes that the process has
   completed or the user cancels the active caption run.
+- Imagebed import dialog: `imagebedImportOverlay`, `imagebedAccountIdInput`,
+  `imagebedAccessKeyIdInput`, `imagebedSecretAccessKeyInput`,
+  `imagebedBucketNameInput`, `imagebedEndpointUrlInput`, `imagebedPrefixInput`,
+  `imagebedMaxFileSizeKbInput`, `imagebedScheduledEnabledInput`,
+  `imagebedScheduledTimeInput`, `imagebedConnectionStatus`,
+  `imagebedLastSyncAt`, `imagebedUnsyncedCount`, `imagebedImportTestButton`,
+  `imagebedImportSaveButton`, `imagebedImportCancelButton`,
+  `imagebedImportDialogMessage`, and `imagebedImportStartButton`. The modal lets
+  the user test the configured R2 endpoint before saving, shows the current
+  connection state and unsynced count in the header row, and is the only place
+  where imagebed sync settings are edited. If a failure happens while this
+  modal is open, the Page keeps the error dialog suppressed because the modal
+  already exposes connection test feedback.
 - Meme-combat dialog: `memeCombatOverlay`, save/cancel buttons, the total
   enable switch, `memeCombatFollow*` inputs for join-pattern settings,
   `memeCombatBurst*` inputs for image burst settings, and
@@ -353,9 +427,13 @@ Main sections in `pages/image-center-page/index.html`:
   `model_fallback_options.provider_ids`, with square up/down icon buttons
   changing order and a trash icon button removing a provider.
 - Upload/provider warning/import/error overlays: handle upload, missing
-  provider, automatic tag-generation failures, and backup import workflows.
-  `captionErrorOverlay` displays the source-specific recovery message and a
-  collapsible `captionErrorDetailText` block for the full backend error detail.
+  provider, automatic tag-generation failures, imagebed import failures, and
+  backup import workflows. `captionErrorOverlay` displays the source-specific
+  recovery message, `captionErrorEyebrow` and `captionErrorTitle` identify the
+  failing flow, and `captionErrorDetailText` exposes the full backend error
+  detail in a collapsible block. The dialog stays hidden while the imagebed
+  config modal is open, then appears on the next Page refresh if a background
+  imagebed sync or caption failure was recorded.
   Page backup import uses the AstrBot bridge upload path
   `caption_import_config_file` so it works inside the protected Page iframe.
   Because the bridge upload API only carries a single `file` field, import mode
@@ -404,7 +482,7 @@ backup package version constant in sync with `PLUGIN_VERSION`:
   broken-image icon.
 - Dialogs: open/fill/read/save functions for upload, provider warning, tag
   categories, proactive reply, meme combat, auto collection, external import,
-  user search, more config, import, and editor.
+  imagebed import, user search, more config, import, error, and editor.
 - Provider warning dialog: `providerWarningOverlay` is shared by upload and
   external-import caption start. It can save the default image caption provider
   and then continue the blocked action.
@@ -413,11 +491,17 @@ backup package version constant in sync with `PLUGIN_VERSION`:
   `discardSelectedPendingImages`, `exportConfig`, `manualExportConfig`,
   `deleteSelectedExternalPendingImages`, `startExternalCaptioning`,
   `cancelExternalCaptioning`, `statExternalImportDirectory`,
-  `startExternalImport`, `downloadScheduledBackup`, `deleteScheduledBackup`,
-  `importConfig`, `uploadImages`.
+  `startExternalImport`, `deleteSelectedImagebedPendingImages`,
+  `startImagebedCaptioning`, `cancelImagebedCaptioning`,
+  `testImagebedImportConnection`, `openImagebedImportDialog`,
+  `saveImagebedImportDialog`, `startImagebedImport`,
+  `downloadScheduledBackup`, `deleteScheduledBackup`, `importConfig`,
+  `uploadImages`.
   `scrollToLibraryScopeSwitch`, `setLibraryViewMode`, `toggleGallerySelection`,
   `togglePendingSelection`, and `scheduleLibraryRender` keep navigation and
-  gallery/list switch state local to the Page session.
+  gallery/list switch state local to the Page session. Imagebed-specific list
+  and pending selection logic is isolated from the external-import flow even
+  though the UI structure mirrors it closely.
 
 ## main.py Flow Map
 
@@ -431,15 +515,16 @@ live in `backend/` mixin modules.
 
 - `SmartImageSenderPlugin.__init__`: Initializes shared runtime state, loads
   index/pool/discarded-history JSON, registers Web APIs via `WebApiMixin`, and
-  publishes the weak plugin reference used by auto-collection and meme-combat
-  observer filters.
-- `initialize`: Runs config migrations, refreshes schemas, syncs the library,
-  starts the upload watcher, scheduled-backup loop, and auto-collection worker.
-  The meme-combat observer worker is created lazily on the first observed group
+  publishes the weak plugin reference used by auto-collection, meme-combat,
+  and imagebed sync/import helpers.
+- `initialize`: Runs config migrations, including imagebed config normalization,
+  refreshes schemas, syncs the library, starts the upload watcher,
+  scheduled-backup loop, auto-collection worker, and imagebed sync loop. The
+  meme-combat observer worker is created lazily on the first observed group
   image event after its total switch is enabled.
 - `terminate`: Cancels background tasks, waits for caption cleanup, persists
-  index/pool/discarded-history data, and clears the auto-collection plugin
-  reference.
+  index/pool/discarded-history data plus imagebed state/discarded data, and
+  clears the auto-collection plugin reference.
 - `WakeImageRequestFilter.filter`: Allows the user-search handler only for
   explicit wake contexts: private chat, `event.is_at_or_wake_command`, or an
   explicit configured AstrBot `wake_prefix` appearing in the current message.
@@ -528,7 +613,9 @@ The user search flow is deliberately lightweight:
   large files do not monopolize the event loop. During Page polling it preserves
   `caption_status == "running"` while the caption task is alive, and
   `_sync_library_if_changed` treats stale `running` items without a live task as
-  recoverable work.
+  recoverable work. Background sync skips while external or imagebed import
+  tasks are actively copying files, so the import workers can finish and then
+  trigger their own final refresh.
 - `_create_persistent_backup`: Builds the canonical ZIP backup snapshot, writes
   it to a temporary file, stores it in `scheduled_backups/`, and returns the
   stored backup metadata. `caption_export_config_api` uses the same code path so
@@ -604,6 +691,22 @@ The user search flow is deliberately lightweight:
   configured, then opens the pause gate and starts the shared caption worker.
   `_cancel_external_captioning` deletes untagged external imports without adding
   those digest records.
+- `_test_imagebed_connection`, `_start_imagebed_import`,
+  `_imagebed_import_worker`, `_imagebed_list_remote_objects`,
+  `_imagebed_import_pending_snapshot`, and `_imagebed_import_image_response_path`:
+  Drive the Cloudflare R2 import pipeline. The worker lists objects with a
+  lightweight SigV4 GET, skips known or discarded remote objects, streams
+  accepted files into `files/imagebed_import/pending_pool/`, and exposes the
+  pending queue to the Page. After captioning succeeds the pending files move
+  into `files/imagebed_import/imported_library/`; failed captioning rolls back
+  to the pending pool or records a fatal error state so the Page can show the
+  error dialog later.
+- `_start_imagebed_captioning`, `_cancel_imagebed_captioning`,
+  `_finalize_captioned_imagebed_item`, `_rollback_caption_failed_imagebed_item`,
+  `_record_imagebed_import_error`, and `_ack_imagebed_import_error`: Control the
+  imagebed pending queue after import. Captioning can be started explicitly
+  from the Page, paused when the queue is blocked, canceled without recording
+  new discard history, and acknowledged after a failure dialog is shown.
 - `_caption_pending_images`: Processes pending caption jobs and merges
   `import_extra_tags` into successful LLM-generated tags. Provider exceptions or
   `[ERRO]` provider text stop the queue, publish `error_message`,
@@ -638,12 +741,22 @@ The user search flow is deliberately lightweight:
   `_model_fallback_config`, `_model_fallback_snapshot`, and
   `_refresh_model_fallback_schema`: Maintain the plugin fallback-provider
   config, Page snapshot, and native WebUI priority select options.
+- `_migrate_imagebed_import_config`, `_imagebed_import_config`,
+  `_normalize_imagebed_import_config`, `_set_imagebed_import_config`,
+  `_imagebed_config_snapshot`, `_test_imagebed_connection`,
+  `_restart_imagebed_sync_task`, `_start_imagebed_sync_task`, and
+  `_imagebed_sync_loop`: Maintain the Page-only Cloudflare R2 import config,
+  preserve secrets during partial Page updates, mirror the normalized config
+  into `imagebed_import_state.json` for reload recovery, keep the
+  connection/stat snapshot current, and drive scheduled syncs when enabled.
 - `_llm_generate_with_provider_fallback`: Shared LLM call wrapper. Candidate
   order is primary provider, current session provider when the feature inherits
   current chat, manual plugin fallback providers when enabled, then AstrBot
   `fallback_chat_models`. Failed providers are cooled down briefly and every
   call is wrapped in a bounded timeout.
-- `_plugin_config_snapshot`, `_update_plugin_config_from_payload`: Page config IO.
+- `_plugin_config_snapshot`, `_update_plugin_config_from_payload`: Page config
+  IO. They include the Page-only `imagebed_import` snapshot and restart the
+  imagebed sync task when the payload changes.
 - `_tag_category_settings_snapshot`, `_normalize_tag_category_settings`: Caption
   category config IO.
 - `_proactive_emoji_snapshot`, `_normalize_proactive_emoji_config`: Proactive
@@ -654,10 +767,10 @@ The user search flow is deliberately lightweight:
 ### Backup And Restore
 
 - `_backup_snapshot`, `_write_backup_zip_file`, `_stream_temp_file`: Export
-  plugin config, index, global tags, image tags, and image files as a temporary
-  ZIP file without keeping the full archive in memory. `_config_snapshot`
-  injects normalized runtime config groups so Page/native WebUI settings are not
-  missed by backup export.
+  plugin config, index, global tags, image tags, imagebed state/discarded data,
+  and image files as a temporary ZIP file without keeping the full archive in
+  memory. `_config_snapshot` injects normalized runtime config groups so
+  Page/native WebUI settings are not missed by backup export.
 - `_receive_backup_import_file`, `_write_legacy_backup_payload_to_temp_file`,
   `_read_backup_zip`: Accept multipart imports or legacy JSON/base64 imports,
   save them to a temporary ZIP path, and validate manifest/config/index data.
@@ -666,15 +779,21 @@ The user search flow is deliberately lightweight:
   copying imported images one-by-one from the ZIP through temporary image files.
   Imported index items preserve explicit waiting states (`pending`/`failed`)
   even when the backup item already has filename fallback tags, so untagged
-  external-import images remain in the Page import-process panel after backup
-  export/import. External-import `import_extra_tags` are preserved so
-  parent-directory tags survive backup round-trips.
-- `_restore_backup_external_import_state`: Restores external-import digest
-  history and persistent Page state, including the caption pause flag, while
-  clearing any active import process from the imported backup.
+  external-import and imagebed-import images remain in their Page
+  import-process panels after backup export/import. External-import
+  `import_extra_tags` are preserved so parent-directory tags survive backup
+  round-trips, and imagebed metadata fields such as remote object markers,
+  import timestamps, and final move timestamps are preserved as well.
+- `_restore_backup_external_import_state`,
+  `_restore_backup_imagebed_import_state`: Restore source-specific digest and
+  persistent Page state, including versioned destructive-warning preferences,
+  the imagebed config mirror, the caption pause flag, and last error for
+  imagebed, while clearing any active import process from the imported backup.
 - `_apply_imported_config`: Restores compatible config fields.
   `model_fallback_options` is normalized on import so stale provider ids from a
-  different AstrBot instance are dropped.
+  different AstrBot instance are dropped, and `imagebed_import` is normalized so
+  stale R2 secrets or invalid endpoints from another instance do not survive the
+  restore.
 - `_clear_image_library`: Removes current indexed image files for overwrite mode.
 
 ### Tag Helpers

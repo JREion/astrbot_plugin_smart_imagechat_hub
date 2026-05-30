@@ -337,6 +337,11 @@ button.success-button:hover {
   background: #116d3c;
 }
 
+button.success-button:active {
+  background: #0d5b31;
+  transform: translateY(1px);
+}
+
 button.primary-action {
   background: #2563eb;
   color: #ffffff;
@@ -394,6 +399,17 @@ input[type="time"] {
 }
 
 input[type="text"] {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #cfd8e6;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fbfcfe;
+  color: #17202a;
+  font: inherit;
+}
+
+input[type="password"] {
   width: 100%;
   min-height: 40px;
   border: 1px solid #cfd8e6;
@@ -577,6 +593,12 @@ select option.provider-warning-option {
   box-shadow: 0 10px 24px rgba(37, 99, 235, 0.24);
 }
 
+.imagebed-library-panel #imagebedLibraryImportButton {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.24);
+}
+
 .library-scope-switch-row {
   width: min(920px, 100%);
   display: flex;
@@ -591,6 +613,7 @@ select option.provider-warning-option {
   border-radius: 8px;
   background: #edf4ff;
   box-shadow: 0 10px 24px rgba(36, 52, 80, 0.12);
+  flex-wrap: wrap;
 }
 
 .scope-toggle-button {
@@ -619,7 +642,8 @@ select option.provider-warning-option {
 
 #manualLibraryScope,
 #autoCollectionScope,
-#externalImportScope {
+#externalImportScope,
+#imagebedImportScope {
   width: min(920px, 100%);
   display: flex;
   flex-direction: column;
@@ -664,13 +688,49 @@ select option.provider-warning-option {
   box-shadow: none;
 }
 
+#imagebedImportPendingList {
+  grid-template-columns: repeat(auto-fill, minmax(68px, 68px));
+  justify-content: start;
+  gap: 6px;
+}
+
+#imagebedImportPendingList .pending-card {
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#imagebedImportPendingList .pending-card:hover {
+  border-color: transparent;
+  background: transparent;
+}
+
+#imagebedImportPendingList .pending-card.is-selected {
+  border-color: transparent;
+  box-shadow: none;
+}
+
 #externalImportPendingList .pending-thumb {
+  border: 1px solid #d7e0ec;
+  border-radius: 5px;
+}
+
+#imagebedImportPendingList .pending-thumb {
   border: 1px solid #d7e0ec;
   border-radius: 5px;
 }
 
 #externalImportPendingList .pending-card-time,
 #externalImportPendingList .pending-card-details {
+  font-size: 10px;
+  line-height: 1.15;
+}
+
+#imagebedImportPendingList .pending-card-time,
+#imagebedImportPendingList .pending-card-details {
   font-size: 10px;
   line-height: 1.15;
 }
@@ -783,6 +843,40 @@ img.is-loading {
 
 .external-import-panel {
   width: min(780px, 100%);
+}
+
+.imagebed-config-status {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.imagebed-config-status div {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid #dfe6f0;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.imagebed-config-status span {
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.imagebed-config-status strong {
+  display: block;
+  margin-top: 8px;
+  color: #1f2d3d;
+  font-size: 16px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.imagebed-config-actions {
+  justify-content: flex-end;
 }
 
 .external-tree {
@@ -1483,6 +1577,7 @@ textarea {
 
 .config-header-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   flex: 0 0 auto;
 }

@@ -28,7 +28,7 @@ from quart import Response, jsonify, request, send_file
 
 
 PLUGIN_NAME = "astrbot_plugin_smart_imagechat_hub"
-PLUGIN_VERSION = "v2.6.1"
+PLUGIN_VERSION = "v2.8.0"
 SKIP_PROACTIVE_EMOJI_EXTRA_KEY = "smart_imagesender_skip_proactive_emoji"
 PENDING_PROACTIVE_EMOJI_EXTRA_KEY = "smart_imagesender_pending_proactive_emoji"
 PENDING_MEME_COMBAT_IMAGE_EXTRA_KEY = "smart_imagesender_pending_meme_combat_image"
@@ -59,13 +59,20 @@ LIBRARY_WATCH_INTERVAL_SECONDS = 2.0
 MANUAL_LIBRARY_SOURCE = "manual_upload"
 COLLECTED_LIBRARY_SOURCE = "auto_collected"
 EXTERNAL_LIBRARY_SOURCE = "external_imported"
+IMAGEBED_LIBRARY_SOURCE = "imagebed_imported"
 PENDING_COLLECTION_FOLDER = "auto_collection/pending_pool"
 COLLECTED_COLLECTION_FOLDER = "auto_collection/solidified_library"
 EXTERNAL_IMPORT_FOLDER = "external_import/imported_library"
+IMAGEBED_IMPORT_CONFIG_KEY = "imagebed_import"
+IMAGEBED_IMPORT_PENDING_FOLDER = "imagebed_import/pending_pool"
+IMAGEBED_IMPORT_LIBRARY_FOLDER = "imagebed_import/imported_library"
+IMAGEBED_IMPORT_THUMBNAIL_FOLDER = "imagebed_import/thumbnails"
 AUTO_COLLECTION_POOL_FILENAME = "auto_collection_pool.json"
 AUTO_COLLECTION_DISCARDED_FILENAME = "auto_collection_discarded.json"
 EXTERNAL_IMPORT_STATE_FILENAME = "external_import_state.json"
 EXTERNAL_IMPORT_THUMBNAIL_FOLDER = "external_import/thumbnails"
+IMAGEBED_IMPORT_STATE_FILENAME = "imagebed_import_state.json"
+IMAGEBED_IMPORT_DISCARDED_FILENAME = "imagebed_import_discarded.json"
 _AUTO_COLLECTION_PLUGIN_REF: Any | None = None
 
 
