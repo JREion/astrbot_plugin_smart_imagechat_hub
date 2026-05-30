@@ -240,13 +240,13 @@ UI Page 支持标准插件配置页面的全部设置。除此之外，它还支
 
 图床配置方式，可以参考：[使用 Cloudflare R2 搭建个人/团队专属“永久”图床](https://involutionhell.com/zh/docs/learn/cs/dev-tips/cloudflare-r2-sharex-free-image-hosting)
 
-一些可选项如下：
+一些配置项说明如下：
 
 | 配置项                 | 配置位置    | 说明                                                     |
 | --------------------- | ---------- | -------------------------------------------------------- |
-| Account ID | `配置图床导入` 窗口 | 有一些 AstrBot 的插件，是按照**子目录**分类表情包的 (例如 `meme_manager`)。<br /> 因此，勾选这个选项，可以直接让本插件继承一些原始插件的分类标签，作为图像的特征标签之一。|
-| Access Key ID          | `配置图床导入` 窗口 | 可在 Cloudflare Dashbroad 中 `R2 Object Storage` 页面的 Overview 界面找到 |
+| Account ID | `配置图床导入` 窗口 | 可在 Cloudflare Dashbroad 中 `R2 Object Storage` 页面的 Overview 界面找到。|
 | Bucket 名称            | `配置图床导入` 窗口 | 可在 Cloudflare Dashbroad 中 `R2 Object Storage` 页面的 Overview 界面中，`Buckets` 列表中找到 |
+| Access Key ID          | `配置图床导入` 窗口 | 可在 Cloudflare Dashbroad 中 `R2 Object Storage` 页面，创建完新的 API  后，弹出的 API token 详情页面找到 |
 | Secret Access Key      | `配置图床导入` 窗口 | 可在 Cloudflare Dashbroad 中 `R2 Object Storage` 页面，创建完新的 API  后，弹出的 API token 详情页面找到 |
 | Endpoint URL           | `配置图床导入` 窗口 | 可在 Cloudflare Dashbroad 中 `R2 Object Storage` 页面，创建完新的 API  后，弹出的 API token 详情页面找到 |
 | 对象前缀               | `配置图床导入` 窗口 | 让插件将只同步图床中的特定 `子目录`。如果留空，则同步整个图床中的数据 (不会以子文件夹区分)。 |
